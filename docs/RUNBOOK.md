@@ -53,6 +53,14 @@ select
   (select count(*) from pg_trigger where tgname like 'audit_log_no_%') as audit_triggers;        -- expect 3
 ```
 
+## Migration log (Supabase project "glio marketing", org GLIO MARKETING, free plan)
+
+| Migration | Applied | How | Diagnostic |
+|---|---|---|---|
+| 20261116000001_tenancy | 2026-11-16 | Pasted into the SQL editor | 7 / true / 20 / 3 ✔ |
+
+Migrations applied through the SQL editor are not recorded in the Supabase CLI's migration history. If we switch to `supabase db push` later, first mark these as applied with `supabase migration repair --status applied <version>` (check the CLI docs at that time) so they are not run twice.
+
 ## Secrets
 
 Never commit keys. Supabase keys and platform credentials are configured per environment, never pasted into chat or code.

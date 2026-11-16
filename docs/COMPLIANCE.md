@@ -13,6 +13,8 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 | Append-only audit log | Implemented (migration 0001), tested |
 | Raw platform responses stored unchanged as evidence for every number | Implemented (migration 0003), immutable, tested |
 | Reconciliation of stored totals against platform totals, drift > 0.5% flagged and logged | Implemented (migration 0004), checks append-only, tested on synthetic data |
+| Proof of what a client was shown (report snapshots + commentary, permanent) | Implemented (migration 0005), tested |
+| AI commentary data sent outside KSA | **Aggregated figures and the reporting period only** go to the Claude API (no client or account names, no raw payloads, no credentials). Whether this is acceptable under PDPL is part of the pending legal opinion. Without an API key configured, no data is sent and the template is used |
 | Platform tokens never stored in the database, logs or error messages | Implemented in sync and connector, tested. **Production secret store not chosen yet** |
 | Audit entry for every read of client data | Planned |
 | Data retention policy | Planned |

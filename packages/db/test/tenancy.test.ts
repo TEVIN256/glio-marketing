@@ -203,11 +203,19 @@ describe("audit log is append-only", () => {
   });
 
   it("blocks UPDATE, DELETE and TRUNCATE, even for the server and the database superuser", async () => {
-    for (const actor of [service, superuser]) {
-      await expect(db.as(actor, (q) => q("update audit_log set action = 'tampered'"))).rejects.toThrow(/append-only/);
-      await expect(db.as(actor, (q) => q("delete from audit_log"))).rejects.toThrow(/append-only/);
-      await expect(db.as(actor, (q) => q("truncate audit_log"))).rejects.toThrow(/append-only/);
+    // The server role isn't even granted these; the superuser is, and is
+    // still stopped by the trigger.
+    for (const [actor, reason] of [[service, /permission denied|append-only/], [superuser, /append-only/]] as const) {
+      await expect(db.as(actor, (q) => q("update audit_log set action = 'tampered'"))).rejects.toThrow(reason);
+      await expect(db.as(actor, (q) => q("delete from audit_log"))).rejects.toThrow(reason);
+      await expect(db.as(actor, (q) => q("truncate audit_log"))).rejects.toThrow(reason);
     }
+  });
+
+  it("the server can append to the audit log", async () => {
+    await db.as(service, (q) =>
+      q("insert into audit_log (workspace_id, actor_kind, actor_label, action) values ($1, 'agent', 'test-agent', 'test.event')", [wsA]),
+    );
   });
 
   it("users cannot write entries in someone else's name or another workspace", async () => {

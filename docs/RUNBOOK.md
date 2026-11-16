@@ -53,11 +53,26 @@ select
   (select count(*) from pg_trigger where tgname like 'audit_log_no_%') as audit_triggers;        -- expect 3
 ```
 
-## Migration log (Supabase project "glio marketing", org GLIO MARKETING, free plan)
+### Diagnostic for 20261117000001_service_role_grants
 
-| Migration | Applied | How | Diagnostic |
-|---|---|---|---|
-| 20261116000001_tenancy | 2026-11-16 | Pasted into the SQL editor | 7 / true / 20 / 3 ✔ |
+```sql
+select
+  has_table_privilege('service_role', 'public.ad_account_credentials', 'select')
+    and has_table_privilege('service_role', 'public.audit_log', 'insert')
+    and not has_table_privilege('service_role', 'public.audit_log', 'delete')  as server_grants_ok,  -- expect true
+  not has_table_privilege('anon', 'public.clients', 'select')
+    and not has_table_privilege('authenticated', 'public.ad_account_credentials', 'select') as locked_down;  -- expect true
+```
+
+## Migration log
+
+Supabase org GLIO MARKETING, free plan.
+
+| Project | Migration | Applied | How | Diagnostic |
+|---|---|---|---|---|
+| "glio marketing", Tokyo (`ap-northeast-1`), **being replaced** by a European project | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
+| New European project | 20261116000001_tenancy | pending | | |
+| New European project | 20261117000001_service_role_grants | pending | | |
 
 Migrations applied through the SQL editor are not recorded in the Supabase CLI's migration history. If we switch to `supabase db push` later, first mark these as applied with `supabase migration repair --status applied <version>` (check the CLI docs at that time) so they are not run twice.
 

@@ -37,3 +37,9 @@ One short record per decision: context, decision, consequence. Newest last.
 **Context.** Platforms already give creative generation away; handling ad spend would make Glio a payments business.
 **Decision.** Glio writes text only (copy, plans, summaries). Creatives come from the business. Ad spend is charged by the platform to the business's own card.
 **Consequence.** No creative-generation dependencies. Glio's own subscription billing is separate and must be ZATCA-compliant.
+
+## ADR-007 Explicit grants only; Supabase's automatic table exposure stays off
+
+**Context.** Supabase can grant API roles access to every new table automatically. That makes access depend on a dashboard setting instead of reviewed SQL.
+**Decision.** Projects are created with "Automatically expose new tables" off and "Enable automatic RLS" on. Every grant Glio relies on, including for the server role, is written in a migration. The test shim mirrors this (no default privileges).
+**Consequence.** A table someone forgets to grant fails loudly in tests instead of being silently exposed.

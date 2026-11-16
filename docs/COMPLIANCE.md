@@ -7,7 +7,7 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 | Item | Status |
 |---|---|
 | Role: business/agency = controller, Glio = processor | **Assumed; needs a legal opinion** |
-| Hosting region | Supabase project "glio marketing" created 2026-11-16 (free plan). **Region still to be recorded.** Must move to a paid plan before real customer data |
+| Hosting region | Development project being moved from Tokyo to a European region (closer to KSA). **No region is in Saudi Arabia**: acceptable for synthetic test data only; a residency decision under PDPL is required before real customer data. Must move to a paid plan before real customer data |
 | Tenant isolation enforced by the database (RLS on every table) | Implemented (migration 0001), tested |
 | Platform credentials kept server-only | Implemented (migration 0001), tested |
 | Append-only audit log | Implemented (migration 0001), tested |

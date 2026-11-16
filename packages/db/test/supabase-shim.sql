@@ -42,6 +42,6 @@ $$;
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
--- Supabase gives service_role full table access by default
-alter default privileges in schema public grant all on tables to service_role;
-alter default privileges in schema public grant all on sequences to service_role;
+-- Deliberately NO default privileges: this mirrors a Supabase project with
+-- "Automatically expose new tables" turned off, so every grant Glio relies
+-- on must be written explicitly in a migration.

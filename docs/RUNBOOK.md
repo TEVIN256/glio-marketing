@@ -70,9 +70,11 @@ Supabase org GLIO MARKETING, free plan.
 
 | Project | Migration | Applied | How | Diagnostic |
 |---|---|---|---|---|
-| "glio marketing", Tokyo (`ap-northeast-1`), **being replaced** by a European project | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
-| New European project | 20261116000001_tenancy | pending | | |
-| New European project | 20261117000001_service_role_grants | pending | | |
+| "glio marketing", **Frankfurt (`eu-central-1`)**, current | 20261116000001_tenancy | 2026-11-16 | SQL editor | combined check below ✔ |
+| "glio marketing", Frankfurt, current | 20261117000001_service_role_grants | 2026-11-16 | SQL editor | 7 / true / 20 / 3 / true / true ✔ |
+| "glio marketing", Tokyo (`ap-northeast-1`), **retired**, to be deleted | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
+
+Frankfurt project created with "Automatically expose new tables" off and "Enable automatic RLS" on (ADR-007).
 
 Migrations applied through the SQL editor are not recorded in the Supabase CLI's migration history. If we switch to `supabase db push` later, first mark these as applied with `supabase migration repair --status applied <version>` (check the CLI docs at that time) so they are not run twice.
 

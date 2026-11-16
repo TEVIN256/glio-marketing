@@ -64,6 +64,21 @@ select
     and not has_table_privilege('authenticated', 'public.ad_account_credentials', 'select') as locked_down;  -- expect true
 ```
 
+### Diagnostic for 20261118000001_sync_and_metrics
+
+```sql
+select
+  (select count(*) from pg_tables where schemaname = 'public'
+     and tablename in ('sync_runs','raw_platform_payloads','metric_daily'))                 as m2_tables,       -- expect 3
+  (select bool_and(rowsecurity) from pg_tables where schemaname = 'public'
+     and tablename in ('sync_runs','raw_platform_payloads','metric_daily'))                 as m2_rls_on,       -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                            as policies,        -- expect 23
+  (select count(*) from pg_trigger where tgname like 'raw_payloads_no_%')                  as raw_triggers,    -- expect 3
+  has_table_privilege('authenticated', 'public.metric_daily', 'select')
+    and not has_table_privilege('authenticated', 'public.metric_daily', 'insert')
+    and has_table_privilege('service_role', 'public.metric_daily', 'insert')               as metrics_server_write_only; -- expect true
+```
+
 ## Migration log
 
 Supabase org GLIO MARKETING, free plan.
@@ -72,6 +87,7 @@ Supabase org GLIO MARKETING, free plan.
 |---|---|---|---|---|
 | "glio marketing", **Frankfurt (`eu-central-1`)**, current | 20261116000001_tenancy | 2026-11-16 | SQL editor | combined check below ✔ |
 | "glio marketing", Frankfurt, current | 20261117000001_service_role_grants | 2026-11-16 | SQL editor | 7 / true / 20 / 3 / true / true ✔ |
+| "glio marketing", Frankfurt, current | 20261118000001_sync_and_metrics | pending owner review | | |
 | "glio marketing", Tokyo (`ap-northeast-1`), **retired**, to be deleted | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
 
 Frankfurt project created with "Automatically expose new tables" off and "Enable automatic RLS" on (ADR-007).

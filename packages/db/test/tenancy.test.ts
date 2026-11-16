@@ -51,13 +51,25 @@ beforeAll(async () => {
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsB, clientB1, bob]);
   });
 
-  // Credentials are written by the server only.
+  // Credentials, sync runs, raw payloads and metrics are written by the server only.
   await db.as(service, async (q) => {
-    const accounts = await q("select id, workspace_id from ad_accounts");
+    const accounts = await q("select id, workspace_id, client_id from ad_accounts");
     for (const a of accounts) {
       await q("insert into ad_account_credentials (ad_account_id, workspace_id, secret_ref) values ($1, $2, $3)", [
         a.id, a.workspace_id, `secret://test/${a.id}`,
       ]);
+      const run = await one(q,
+        `insert into sync_runs (workspace_id, client_id, ad_account_id, platform, kind, date_from, date_to, status)
+         values ($1, $2, $3, 'tiktok', 'manual', '2026-01-01', '2026-01-01', 'succeeded') returning id`,
+        [a.workspace_id, a.client_id, a.id]);
+      const raw = await one(q,
+        `insert into raw_platform_payloads (workspace_id, client_id, ad_account_id, platform, endpoint, request_params, payload, payload_sha256, first_sync_run_id)
+         values ($1, $2, $3, 'tiktok', '/test/', '{}', '{"test": true}', repeat('a', 64), $4) returning id`,
+        [a.workspace_id, a.client_id, a.id, run.id]);
+      await q(
+        `insert into metric_daily (workspace_id, client_id, ad_account_id, platform, level, entity_id, date, currency, spend_minor, raw_payload_id, sync_run_id)
+         values ($1, $2, $3, 'tiktok', 'campaign', 'test-campaign', '2026-01-01', 'SAR', 100, $4, $5)`,
+        [a.workspace_id, a.client_id, a.id, raw.id, run.id]);
     }
   });
 });
@@ -84,7 +96,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(6);
+    expect(tables.length).toBeGreaterThanOrEqual(9);
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -150,6 +162,8 @@ describe("client_viewer", () => {
       const accounts = await q("select client_id from ad_accounts");
       expect(accounts.map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select client_id from approval_requests")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from metric_daily")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from raw_platform_payloads")).map((r) => r.client_id)).toEqual([clientA1]);
     });
   });
 
@@ -175,11 +189,12 @@ describe("roles and credentials", () => {
   it("platform credentials are invisible to every signed-in user, even the owner", async () => {
     await expect(db.as(user(alice), (q) => q("select * from ad_account_credentials"))).rejects.toThrow(/permission denied/);
     const row = await db.as(service, (q) => one(q, "select count(*)::int as n from ad_account_credentials"));
-    expect(row.n).toBe(3);
+    expect(row.n).toBe(3); // one per seeded ad account
   });
 
   it("the anonymous role can read nothing", async () => {
-    for (const t of ["workspaces", "clients", "memberships", "ad_accounts", "approval_requests", "audit_log"]) {
+    for (const t of ["workspaces", "clients", "memberships", "ad_accounts", "approval_requests", "audit_log",
+                     "sync_runs", "raw_platform_payloads", "metric_daily"]) {
       await expect(db.as(anon, (q) => q(`select * from public.${t}`))).rejects.toThrow(/permission denied/);
     }
   });

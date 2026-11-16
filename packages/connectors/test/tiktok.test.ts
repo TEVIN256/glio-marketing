@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PlatformError, TikTokConnector, type FetchLike } from "../src/index.js";
-import { PAGE_1 } from "./fixtures/tiktok-report.js";
+import { PAGE_1, tiktokAccountTotals } from "./fixtures/tiktok-report.js";
 
 const TOKEN = "test-secret-token-should-never-leak";
 
@@ -101,5 +101,39 @@ describe("TikTok authorization", () => {
     const result = await new TikTokConnector({ fetch }).exchangeAuthCode({ appId: "a", appSecret: "s", authCode: "c" });
     expect(result).toEqual({ accessToken: "new-token", advertiserIds: ["test-advertiser-1"] });
     expect(calls[0]!.init?.method).toBe("POST");
+  });
+});
+
+describe("TikTokConnector.fetchAccountTotals", () => {
+  it("asks for account-level totals over the range and returns them as sent", async () => {
+    const body = tiktokAccountTotals({ spend: "337.89", impressions: "30600", clicks: "635", conversion: "29" });
+    const { fetch, calls } = fakeFetch([{ status: 200, body }]);
+    const totals = await new TikTokConnector({ fetch }).fetchAccountTotals({
+      accessToken: TOKEN, externalAccountId: "test-advertiser-1", dateFrom: "2026-01-01", dateTo: "2026-01-03",
+    });
+    const params = new URL(calls[0]!.url).searchParams;
+    expect(params.get("data_level")).toBe("AUCTION_ADVERTISER");
+    expect(params.get("start_date")).toBe("2026-01-01");
+    expect(params.get("end_date")).toBe("2026-01-03");
+    expect(calls[0]!.url).not.toContain(TOKEN);
+    expect(totals).toMatchObject({ spend: "337.89", impressions: 30600, clicks: 635, conversions: "29" });
+    expect(totals.payload).toBe(body);
+  });
+
+  it("reports an empty answer as empty, not as zero", async () => {
+    const body = tiktokAccountTotals({ spend: "1", impressions: "1", clicks: "1", conversion: "1" });
+    body.data.list = [];
+    const { fetch } = fakeFetch([{ status: 200, body }]);
+    const totals = await new TikTokConnector({ fetch }).fetchAccountTotals({ accessToken: TOKEN, externalAccountId: "x", dateFrom: "2026-01-01", dateTo: "2026-01-01" });
+    expect(totals).toMatchObject({ empty: true, spend: null, impressions: null, clicks: null, conversions: null });
+  });
+
+  it("refuses an ambiguous multi-row totals response", async () => {
+    const body = tiktokAccountTotals({ spend: "1", impressions: "1", clicks: "1", conversion: "1" });
+    body.data.list.push(body.data.list[0]!);
+    const { fetch } = fakeFetch([{ status: 200, body }]);
+    await expect(
+      new TikTokConnector({ fetch }).fetchAccountTotals({ accessToken: TOKEN, externalAccountId: "x", dateFrom: "2026-01-01", dateTo: "2026-01-01" }),
+    ).rejects.toThrow(/expected 1/);
   });
 });

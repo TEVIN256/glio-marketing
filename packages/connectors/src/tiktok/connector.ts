@@ -1,9 +1,10 @@
 import {
-  type DailyMetricRow, type DailyReportRequest, type FetchLike, PlatformError, type ReportingConnector, type ReportPage,
+  type AccountTotals, type AccountTotalsRequest, type DailyMetricRow, type DailyReportRequest, type FetchLike,
+  PlatformError, type ReportingConnector, type ReportPage,
 } from "../types.js";
 import {
   TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_REPORT_PATH, TIKTOK_TOKEN_PATH,
-  campaignDailyReportParams, type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
+  accountTotalsParams, campaignDailyReportParams, type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.js";
 
 export interface TikTokConnectorOptions {
@@ -57,17 +58,7 @@ export class TikTokConnector implements ReportingConnector {
 
   async fetchDailyReportPage(req: DailyReportRequest): Promise<ReportPage> {
     const params = campaignDailyReportParams(req.externalAccountId, req.dateFrom, req.dateTo, req.page);
-    const url = new URL(this.apiBase + TIKTOK_REPORT_PATH);
-    for (const [key, value] of Object.entries(params)) {
-      url.searchParams.set(key, typeof value === "string" ? value : JSON.stringify(value));
-    }
-
-    const res = await this.fetch(url.toString(), { method: "GET", headers: { "Access-Token": req.accessToken } });
-    const body = await this.readEnvelope<TikTokReportData>(res, TIKTOK_REPORT_PATH, [req.accessToken]);
-    const data = body.data;
-    if (!data || !Array.isArray(data.list) || !data.page_info) {
-      throw new PlatformError("TikTok report response is missing data.list or data.page_info", "tiktok", "bad_shape", false);
-    }
+    const { body, data } = await this.getReport(params, req.accessToken);
 
     return {
       endpoint: TIKTOK_REPORT_PATH,
@@ -78,6 +69,42 @@ export class TikTokConnector implements ReportingConnector {
       totalPages: data.page_info.total_page,
       rows: data.list.map(toRow),
     };
+  }
+
+  async fetchAccountTotals(req: AccountTotalsRequest): Promise<AccountTotals> {
+    const params = accountTotalsParams(req.externalAccountId, req.dateFrom, req.dateTo);
+    const { body, data } = await this.getReport(params, req.accessToken);
+    if (data.list.length > 1) {
+      throw new PlatformError(`TikTok account totals returned ${data.list.length} rows, expected 1`, "tiktok", "bad_shape", false);
+    }
+    // No row: we don't assume it means zero. Reconciliation decides what an
+    // empty answer means. TODO(verify) TikTok's behaviour for inactive ranges.
+    const m = data.list[0]?.metrics ?? {};
+    return {
+      endpoint: TIKTOK_REPORT_PATH,
+      requestParams: params,
+      payload: body,
+      hashBasis: withoutRequestId(body),
+      empty: data.list.length === 0,
+      spend: decimalOrNull(m["spend"]),
+      impressions: integerOrNull(m["impressions"]),
+      clicks: integerOrNull(m["clicks"]),
+      conversions: decimalOrNull(m["conversion"]),
+    };
+  }
+
+  private async getReport(params: Record<string, unknown>, accessToken: string) {
+    const url = new URL(this.apiBase + TIKTOK_REPORT_PATH);
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, typeof value === "string" ? value : JSON.stringify(value));
+    }
+    const res = await this.fetch(url.toString(), { method: "GET", headers: { "Access-Token": accessToken } });
+    const body = await this.readEnvelope<TikTokReportData>(res, TIKTOK_REPORT_PATH, [accessToken]);
+    const data = body.data;
+    if (!data || !Array.isArray(data.list) || !data.page_info) {
+      throw new PlatformError("TikTok report response is missing data.list or data.page_info", "tiktok", "bad_shape", false);
+    }
+    return { body, data };
   }
 
   private async readEnvelope<T>(

@@ -55,3 +55,16 @@ export const EXPECTED_TOTALS = {
   conversions: 12 + 9 + 0 + 3 + 4 + 1, // 29
   rows: 6,
 };
+
+/** SYNTHETIC account-level totals response (one aggregated row). */
+export function tiktokAccountTotals(t: { spend: string; impressions: string; clicks: string; conversion: string }) {
+  return {
+    code: 0,
+    message: "OK",
+    request_id: "test-request-totals",
+    data: {
+      list: [{ dimensions: { advertiser_id: "test-advertiser-1" }, metrics: { ...t } }],
+      page_info: { page: 1, page_size: 10, total_number: 1, total_page: 1 },
+    },
+  };
+}

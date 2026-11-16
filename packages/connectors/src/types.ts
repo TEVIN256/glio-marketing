@@ -49,11 +49,38 @@ export interface DailyReportRequest {
   page: number;
 }
 
+/**
+ * The platform's OWN totals for an ad account over a date range, used for
+ * reconciliation. Values are as sent (decimal strings / integers); null =
+ * not provided.
+ */
+export interface AccountTotals {
+  endpoint: string;
+  requestParams: Record<string, unknown>;
+  payload: unknown;
+  hashBasis: unknown;
+  /** True when the platform returned no totals row at all for the range. */
+  empty: boolean;
+  spend: string | null;
+  impressions: number | null;
+  clicks: number | null;
+  conversions: string | null;
+}
+
+export interface AccountTotalsRequest {
+  accessToken: string;
+  externalAccountId: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
 export interface ReportingConnector {
   readonly platform: Platform;
   /** Longest date range one report request may cover. */
   readonly maxDaysPerRequest: number;
   fetchDailyReportPage(req: DailyReportRequest): Promise<ReportPage>;
+  /** Platform-reported totals for the whole account and range (max maxDaysPerRequest days). */
+  fetchAccountTotals(req: AccountTotalsRequest): Promise<AccountTotals>;
 }
 
 /**

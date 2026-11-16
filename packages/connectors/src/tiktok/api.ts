@@ -41,6 +41,25 @@ export function campaignDailyReportParams(advertiserId: string, dateFrom: string
   };
 }
 
+/**
+ * Account-level totals over the whole range (no day dimension), used for
+ * reconciliation. TODO(verify): data level and dimension names, and that
+ * omitting stat_time_day returns one aggregated row for the range.
+ */
+export function accountTotalsParams(advertiserId: string, dateFrom: string, dateTo: string) {
+  return {
+    advertiser_id: advertiserId,
+    report_type: "BASIC",
+    data_level: "AUCTION_ADVERTISER",
+    dimensions: ["advertiser_id"],
+    metrics: ["spend", "impressions", "clicks", "conversion"],
+    start_date: dateFrom,
+    end_date: dateTo,
+    page: 1,
+    page_size: 10,
+  };
+}
+
 /** Expected envelope of every TikTok API response. TODO(verify). */
 export interface TikTokEnvelope<T> {
   code: number; // 0 = success

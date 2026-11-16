@@ -79,6 +79,19 @@ select
     and has_table_privilege('service_role', 'public.metric_daily', 'insert')               as metrics_server_write_only; -- expect true
 ```
 
+### Diagnostic for 20261119000001_reconciliation
+
+```sql
+select
+  to_regclass('public.reconciliation_checks') is not null
+    and to_regclass('public.reconciliation_latest') is not null                                   as m3_objects,     -- expect true
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'reconciliation_checks') as m3_rls_on, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                   as policies,       -- expect 24
+  (select count(*) from pg_trigger where tgname like 'reconciliation_checks_no_%')               as log_triggers,   -- expect 3
+  (select coalesce(array_to_string(reloptions, ','), '') like '%security_invoker=true%'
+     from pg_class where oid = 'public.reconciliation_latest'::regclass)                          as view_uses_rls;  -- expect true
+```
+
 ## Migration log
 
 Supabase org GLIO MARKETING, free plan.
@@ -88,6 +101,7 @@ Supabase org GLIO MARKETING, free plan.
 | "glio marketing", **Frankfurt (`eu-central-1`)**, current | 20261116000001_tenancy | 2026-11-16 | SQL editor | combined check below ✔ |
 | "glio marketing", Frankfurt, current | 20261117000001_service_role_grants | 2026-11-16 | SQL editor | 7 / true / 20 / 3 / true / true ✔ |
 | "glio marketing", Frankfurt, current | 20261118000001_sync_and_metrics | 2026-11-16 | SQL editor (statements as in the file, comments omitted) | 3 / true / 23 / 3 / true ✔ |
+| "glio marketing", Frankfurt, current | 20261119000001_reconciliation | pending owner review | | |
 | "glio marketing", Tokyo (`ap-northeast-1`), **retired**, to be deleted | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
 
 Frankfurt project created with "Automatically expose new tables" off and "Enable automatic RLS" on (ADR-007).

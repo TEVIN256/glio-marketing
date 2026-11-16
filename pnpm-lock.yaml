@@ -8,12 +8,68 @@ importers:
 
   .: {}
 
+  packages/connectors:
+    dependencies:
+      '@glio/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6))
+
+  packages/core:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6))
+
   packages/db:
     dependencies:
       pg:
         specifier: ^8.23.1
         version: 8.23.1
     devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6))
+
+  packages/sync:
+    dependencies:
+      '@glio/connectors':
+        specifier: workspace:*
+        version: link:../connectors
+      '@glio/core':
+        specifier: workspace:*
+        version: link:../core
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+    devDependencies:
+      '@glio/db':
+        specifier: workspace:*
+        version: link:../db
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6

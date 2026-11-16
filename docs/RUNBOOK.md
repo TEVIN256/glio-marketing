@@ -31,6 +31,26 @@ DATABASE_URL=postgres://postgres@127.0.0.1:54329/postgres pnpm test
 pnpm typecheck
 ```
 
+## Run the web app
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Fill in `apps/web/.env.local` (see the comments in the file), then:
+
+```bash
+pnpm --filter @glio/web dev
+```
+
+Open http://localhost:3000. The app is Arabic by default; the button in the top bar switches to English.
+
+**Supabase Auth settings** (Authentication → URL Configuration in the Supabase dashboard):
+- Site URL: the app's address (http://localhost:3000 locally, the real domain later).
+- Redirect URLs: add `<site-url>/auth/callback`, which email confirmation links return to.
+
+**Demo data:** with `GLIO_DEMO_MODE=1`, an owner or manager sees "Load demo data (synthetic)" on a client page. It attaches a fake TikTok account (`demo-advertiser-001`) and syncs obviously fake numbers for the chosen period, so the dashboard can be tried before TikTok API access. Turn it off (`GLIO_DEMO_MODE=0`) before real clients use the app.
+
 ## Apply migrations to Supabase
 
 Migrations live in `supabase/migrations/` and are applied in filename order. They are **not** applied automatically by merging.

@@ -16,7 +16,7 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 | Proof of what a client was shown (report snapshots + commentary, permanent) | Implemented (migration 0005), tested |
 | AI commentary data sent outside KSA | **Aggregated figures and the reporting period only** go to the Claude API (no client or account names, no raw payloads, no credentials). Whether this is acceptable under PDPL is part of the pending legal opinion. Without an API key configured, no data is sent and the template is used |
 | Platform tokens never stored in the database, logs or error messages | Implemented in sync and connector, tested. **Production secret store not chosen yet** |
-| Audit entry for every read of client data | Planned |
+| Audit entry for every read of client data | Partial: viewing a client dashboard writes `client.viewed`; report and figure pages not yet |
 | Data retention policy | Planned |
 | Client data deletion endpoint | Planned. Deleting an ad account or workspace cascades to its synced data (sync runs, raw payloads, metrics; tested); audit entries are retained by design |
 | Consent records for WhatsApp marketing messages | Planned (with WhatsApp) |
@@ -28,6 +28,14 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 | Glio's own subscription invoices | Planned via a ZATCA-certified provider; no payment flow built |
 | Agency client invoices | Glio will only track and remind; invoices stay in the agency's accounting tool |
 
+## Authentication
+
+| Item | Status |
+|---|---|
+| Email + password sign-up with email confirmation | Implemented (Supabase Auth) |
+| Two-factor authentication for owners | Planned |
+| Session cookies refreshed server-side; signed-out users redirected | Implemented |
+
 ## Money
 
 - Glio never holds ad spend; the platform charges the business's own card.
@@ -37,6 +45,6 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 
 | Item | Status |
 |---|---|
-| Arabic-first, right-to-left UI | Planned (UI not built yet). Workspace default locale is `ar` |
+| Arabic-first, right-to-left UI | Implemented for login, workspaces, clients, dashboard, reports and figure detail (server-rendered RTL, logical CSS, isolated numbers) |
 | Asia/Riyadh default timezone, Hijri display option | Timezone default implemented; Hijri planned |
-| WCAG AA, keyboard navigation, Arabic screen-reader labels | Planned |
+| WCAG AA, keyboard navigation, Arabic screen-reader labels | Partial: AA colour contrast, visible focus outlines, labelled form fields and figure links; no formal audit yet |

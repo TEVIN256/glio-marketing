@@ -28,7 +28,7 @@ export interface SyncResult {
   errorCode?: string;
 }
 
-interface AdAccount {
+export interface AdAccount {
   id: string;
   workspace_id: string;
   client_id: string;
@@ -154,7 +154,7 @@ export class SyncError extends Error {
   }
 }
 
-async function loadAccount(query: Query, adAccountId: string): Promise<AdAccount> {
+export async function loadAccount(query: Query, adAccountId: string): Promise<AdAccount> {
   const [row] = await query(
     "select id, workspace_id, client_id, platform, external_id, currency from public.ad_accounts where id = $1",
     [adAccountId],
@@ -164,7 +164,12 @@ async function loadAccount(query: Query, adAccountId: string): Promise<AdAccount
 }
 
 /** Store the response unchanged; identical content is stored once per account. */
-async function archivePayload(query: Query, account: AdAccount, syncRunId: string, page: ReportPage): Promise<number> {
+export async function archivePayload(
+  query: Query,
+  account: AdAccount,
+  syncRunId: string,
+  page: Pick<ReportPage, "endpoint" | "requestParams" | "payload" | "hashBasis">,
+): Promise<number> {
   const hash = sha256OfJson(page.hashBasis);
   const inserted = await query(
     `insert into public.raw_platform_payloads

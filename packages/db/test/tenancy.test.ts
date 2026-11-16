@@ -75,6 +75,14 @@ beforeAll(async () => {
                                             metric, unit, currency, ours, theirs, drift_ppm, threshold_ppm, status, platform_payload_id)
          values (gen_random_uuid(), $1, $2, $3, 'tiktok', $4, '2026-01-01', '2026-01-01', 'spend', 'minor_units', 'SAR', 100, 100, 0, 5000, 'ok', $5)`,
         [a.workspace_id, a.client_id, a.id, run.id, raw.id]);
+      const comm = await one(q,
+        `insert into ai_commentary (workspace_id, client_id, input, input_sha256, prompt_version, system_prompt_sha256, source, text_ar, text_en, attempts)
+         values ($1, $2, '{}', repeat('b', 64), 'test', repeat('c', 64), 'template', 'نص', 'text', '[]') returning id`,
+        [a.workspace_id, a.client_id]);
+      await q(
+        `insert into report_snapshots (workspace_id, client_id, date_from, date_to, report, report_sha256, commentary_id, created_by_label)
+         values ($1, $2, '2026-01-01', '2026-01-01', '{}', repeat('d', 64), $3, 'test')`,
+        [a.workspace_id, a.client_id, comm.id]);
     }
   });
 });
@@ -101,7 +109,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(11); // 10 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(13); // 12 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -170,6 +178,8 @@ describe("client_viewer", () => {
       expect((await q("select distinct client_id from metric_daily")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from raw_platform_payloads")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from reconciliation_latest")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from report_snapshots")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from ai_commentary")).map((r) => r.client_id)).toEqual([clientA1]);
     });
   });
 
@@ -200,7 +210,8 @@ describe("roles and credentials", () => {
 
   it("the anonymous role can read nothing", async () => {
     for (const t of ["workspaces", "clients", "memberships", "ad_accounts", "approval_requests", "audit_log",
-                     "sync_runs", "raw_platform_payloads", "metric_daily", "reconciliation_checks", "reconciliation_latest"]) {
+                     "sync_runs", "raw_platform_payloads", "metric_daily", "reconciliation_checks", "reconciliation_latest",
+                     "ai_commentary", "report_snapshots"]) {
       await expect(db.as(anon, (q) => q(`select * from public.${t}`))).rejects.toThrow(/permission denied/);
     }
   });

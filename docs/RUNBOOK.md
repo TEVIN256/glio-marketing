@@ -92,6 +92,19 @@ select
      from pg_class where oid = 'public.reconciliation_latest'::regclass)                          as view_uses_rls;  -- expect true
 ```
 
+### Diagnostic for 20261120000001_reports_and_commentary
+
+```sql
+select
+  to_regclass('public.ai_commentary') is not null
+    and to_regclass('public.report_snapshots') is not null                                   as m5_tables,        -- expect true
+  (select bool_and(rowsecurity) from pg_tables where schemaname = 'public'
+     and tablename in ('ai_commentary', 'report_snapshots'))                                as m5_rls_on,        -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                            as policies,         -- expect 26
+  (select count(*) from pg_trigger
+     where tgname like 'ai_commentary_no_%' or tgname like 'report_snapshots_no_%')        as record_triggers;  -- expect 6
+```
+
 ## Migration log
 
 Supabase org GLIO MARKETING, free plan.
@@ -102,11 +115,16 @@ Supabase org GLIO MARKETING, free plan.
 | "glio marketing", Frankfurt, current | 20261117000001_service_role_grants | 2026-11-16 | SQL editor | 7 / true / 20 / 3 / true / true ✔ |
 | "glio marketing", Frankfurt, current | 20261118000001_sync_and_metrics | 2026-11-16 | SQL editor (statements as in the file, comments omitted) | 3 / true / 23 / 3 / true ✔ |
 | "glio marketing", Frankfurt, current | 20261119000001_reconciliation | 2026-11-16 | SQL editor (statements as in the file, comments omitted) | true / true / 24 / 3 / true ✔ |
+| "glio marketing", Frankfurt, current | 20261120000001_reports_and_commentary | pending owner review | | |
 | "glio marketing", Tokyo (`ap-northeast-1`), **retired**, to be deleted | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
 
 Frankfurt project created with "Automatically expose new tables" off and "Enable automatic RLS" on (ADR-007).
 
 Migrations applied through the SQL editor are not recorded in the Supabase CLI's migration history. If we switch to `supabase db push` later, first mark these as applied with `supabase migration repair --status applied <version>` (check the CLI docs at that time) so they are not run twice.
+
+## AI commentary (Claude)
+
+Report commentary uses Claude (`claude-opus-5-5` by default) through `ClaudeCommentaryModel`. The server needs `ANTHROPIC_API_KEY` in its environment. Without a configured model, reports use the deterministic template. Tests never call the API.
 
 ## Secrets
 

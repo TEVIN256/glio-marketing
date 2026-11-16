@@ -32,3 +32,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      # The web app must build without secrets (they're read at runtime).
+      - run: pnpm --filter @glio/web build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

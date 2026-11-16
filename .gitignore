@@ -9,3 +9,6 @@ dist/
 .next/
 .turbo/
 supabase/.temp/
+next-env.d.ts
+*.tsbuildinfo
+.env.local

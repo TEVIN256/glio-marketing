@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { TestDb, service, superuser, user } from "@glio/db/test-harness";
 import { type FetchLike, TikTokConnector } from "@glio/connectors";
-import { EXPECTED_TOTALS, PAGE_1, PAGE_2, tiktokAccountTotals, tiktokReportPage } from "../../connectors/test/fixtures/tiktok-report.js";
-import { InMemorySecretStore, type SqlExecutor, compareMetric, reconcile, runSync } from "../src/index.js";
+import { EXPECTED_TOTALS, PAGE_1, PAGE_2, tiktokAccountTotals, tiktokReportPage } from "../../connectors/test/fixtures/tiktok-report.ts";
+import { InMemorySecretStore, type SqlExecutor, compareMetric, reconcile, runSync } from "../src/index.ts";
 
 /**
  * M3 GATE: a seeded 0.4% drift is hidden (ok), a seeded 3% drift is flagged,

@@ -1,10 +1,10 @@
 import { MoneyError, decimalToMinor, splitWindows } from "@glio/core";
 import { type AccountTotals, PlatformError, type ReportingConnector } from "@glio/connectors";
 import { randomUUID } from "node:crypto";
-import { type RetryOptions, defaultRetry, withRetry } from "./retry.js";
-import { archivePayload, loadAccount } from "./run-sync.js";
-import type { SecretStore } from "./secrets.js";
-import type { SqlExecutor } from "./sql.js";
+import { type RetryOptions, defaultRetry, withRetry } from "./retry.ts";
+import { archivePayload, loadAccount } from "./run-sync.ts";
+import type { SecretStore } from "./secrets.ts";
+import type { SqlExecutor } from "./sql.ts";
 
 /** 0.5% in parts per million. */
 export const DEFAULT_THRESHOLD_PPM = 5_000;

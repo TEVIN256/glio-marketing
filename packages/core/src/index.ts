@@ -1,3 +1,3 @@
-export * from "./money.js";
-export * from "./hash.js";
-export * from "./dates.js";
+export * from "./money.ts";
+export * from "./hash.ts";
+export * from "./dates.ts";

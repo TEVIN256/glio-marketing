@@ -3,8 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TestDb, service, superuser, user } from "@glio/db/test-harness";
 import { type FetchLike, TikTokConnector } from "@glio/connectors";
 import { InMemorySecretStore, type SqlExecutor, reconcile, runSync } from "@glio/sync";
-import { PAGE_1, PAGE_2, tiktokAccountTotals } from "../../connectors/test/fixtures/tiktok-report.js";
-import { type CommentaryModel, type Figure, type ReportModel, allowedNumbers, createReportSnapshot, extractNumbers } from "../src/index.js";
+import { PAGE_1, PAGE_2, tiktokAccountTotals } from "../../connectors/test/fixtures/tiktok-report.ts";
+import { type CommentaryModel, type Figure, type ReportModel, allowedNumbers, createReportSnapshot, extractNumbers } from "../src/index.ts";
 
 /**
  * M5 GATE: every number stated in a generated (Arabic and English) report is

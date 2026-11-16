@@ -1,11 +1,11 @@
 import {
   type AccountTotals, type AccountTotalsRequest, type DailyMetricRow, type DailyReportRequest, type FetchLike,
   PlatformError, type ReportingConnector, type ReportPage,
-} from "../types.js";
+} from "../types.ts";
 import {
   TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_REPORT_PATH, TIKTOK_TOKEN_PATH,
   accountTotalsParams, campaignDailyReportParams, type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
-} from "./api.js";
+} from "./api.ts";
 
 export interface TikTokConnectorOptions {
   fetch?: FetchLike;

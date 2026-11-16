@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { TestDb, anon, service, superuser, user, type Query } from "./harness.js";
+import { TestDb, anon, service, superuser, user, type Query } from "./harness.ts";
 
 /**
  * M1 GATE: a user from workspace A cannot read or change workspace B's data,

@@ -1,6 +1,6 @@
 import { sha256OfJson } from "@glio/core";
-import { METRIC_LABELS, type ReportModel, SCOPE_LABELS } from "./figures.js";
-import { allowedNumbers, validateText } from "./validate.js";
+import { METRIC_LABELS, type ReportModel, SCOPE_LABELS } from "./figures.ts";
+import { allowedNumbers, validateText } from "./validate.ts";
 
 /**
  * AI commentary: a short narrative of the period in Arabic and English.

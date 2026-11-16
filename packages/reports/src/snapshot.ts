@@ -1,8 +1,8 @@
 import { assertIsoDate, sha256OfJson } from "@glio/core";
 import type { SqlExecutor } from "@glio/sync";
-import { type CommentaryModel, type CommentaryResult, generateCommentary } from "./commentary.js";
-import { type ChannelTotals, type ReportModel, buildReport } from "./figures.js";
-import type { Digits } from "./format.js";
+import { type CommentaryModel, type CommentaryResult, generateCommentary } from "./commentary.ts";
+import { type ChannelTotals, type ReportModel, buildReport } from "./figures.ts";
+import type { Digits } from "./format.ts";
 
 type Sum = bigint | null | "partial";
 

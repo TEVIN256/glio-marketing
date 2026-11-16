@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type ChannelTotals, type CommentaryModel, allowedFor, buildReport, extractNumbers, formatDecimal, formatMoney,
   formatPercent, generateCommentary, roundRatio, templateCommentary, validateText,
-} from "../src/index.js";
+} from "../src/index.ts";
 
 describe("formatting", () => {
   it("formats numbers for English, Arabic with Western digits, and Arabic-Indic", () => {

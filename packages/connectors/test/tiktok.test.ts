@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PlatformError, TikTokConnector, type FetchLike } from "../src/index.js";
-import { PAGE_1, tiktokAccountTotals } from "./fixtures/tiktok-report.js";
+import { PlatformError, TikTokConnector, type FetchLike } from "../src/index.ts";
+import { PAGE_1, tiktokAccountTotals } from "./fixtures/tiktok-report.ts";
 
 const TOKEN = "test-secret-token-should-never-leak";
 

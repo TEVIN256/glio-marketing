@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { TestDb, service, superuser, user } from "@glio/db/test-harness";
 import { type FetchLike, TikTokConnector } from "@glio/connectors";
-import { EXPECTED_TOTALS, PAGE_1, PAGE_2, tiktokReportPage } from "../../connectors/test/fixtures/tiktok-report.js";
-import { InMemorySecretStore, type SqlExecutor, backfillWindow, runSync, scheduledWindow } from "../src/index.js";
+import { EXPECTED_TOTALS, PAGE_1, PAGE_2, tiktokReportPage } from "../../connectors/test/fixtures/tiktok-report.ts";
+import { InMemorySecretStore, type SqlExecutor, backfillWindow, runSync, scheduledWindow } from "../src/index.ts";
 
 /**
  * M2 GATE: re-running a sync for the same window produces zero duplicate rows

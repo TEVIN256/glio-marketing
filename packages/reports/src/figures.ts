@@ -1,4 +1,4 @@
-import { type Digits, formatDecimal, formatMoney, formatPercent, roundRatio, trimDecimal } from "./format.js";
+import { type Digits, formatDecimal, formatMoney, formatPercent, roundRatio, trimDecimal } from "./format.ts";
 
 /**
  * A report is a list of FIGURES. Every figure has a stable id, an exact

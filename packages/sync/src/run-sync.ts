@@ -1,8 +1,8 @@
 import { MoneyError, decimalToMinor, sha256OfJson, splitWindows } from "@glio/core";
 import { type DailyMetricRow, PlatformError, type ReportingConnector, type ReportPage } from "@glio/connectors";
-import { type RetryOptions, defaultRetry, withRetry } from "./retry.js";
-import type { SecretStore } from "./secrets.js";
-import type { Query, SqlExecutor } from "./sql.js";
+import { type RetryOptions, defaultRetry, withRetry } from "./retry.ts";
+import type { SecretStore } from "./secrets.ts";
+import type { Query, SqlExecutor } from "./sql.ts";
 
 export type SyncKind = "scheduled" | "backfill" | "manual";
 

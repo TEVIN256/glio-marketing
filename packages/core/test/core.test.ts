@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MoneyError, addDays, canonicalJson, daysInclusive, decimalToMinor, minorToDecimalString,
   sha256OfJson, splitWindows, todayIn,
-} from "../src/index.js";
+} from "../src/index.ts";
 
 describe("decimalToMinor: exact, never rounds", () => {
   it.each([

@@ -61,3 +61,9 @@ One short record per decision: context, decision, consequence. Newest last.
 **Context.** The database stores only `secret_ref`.
 **Decision.** A `SecretStore` interface resolves refs to tokens. Only an in-memory implementation exists, for tests. The production store (Supabase Vault or a KMS-backed store) is chosen before the first real TikTok account is connected.
 **Consequence.** Tokens never reach tables, logs or sync error messages (tested); the production store is an open item.
+
+## ADR-011 Reconciliation: our stored totals vs the platform's own totals
+
+**Context.** Reported numbers must tie to platform totals; drift must be visible, not discovered by a client.
+**Decision.** After a successful sync, `reconcile()` asks the platform for account-level totals over the sync run's dates (split and summed if longer than one request allows), archives that response, and compares it with the sum of the stored campaign rows: spend (minor units), impressions, clicks, conversions (scaled by 10^4). Drift = |ours − theirs| / theirs in parts per million, decided with exact integer arithmetic; flagged when strictly greater than the threshold (default 5,000 ppm = 0.5%). Missing values are "not comparable", never zero; "platform reports 0 / no activity but Glio stored some" is always flagged. One row per metric goes to the append-only `reconciliation_checks`, and a structured log event is emitted (`warn` on drift, `error` on failure, never credentials). `reconciliation_latest` (security_invoker view) gives the UI the newest result per metric.
+**Consequence.** Every check is provable after the fact: both numbers, the threshold used and the platform response are stored. Comparing campaign-level sums to account totals can legitimately differ (e.g. deleted campaigns, late attribution); that is what the flag is for. Thresholds per client and alerting (WhatsApp/email) come later.

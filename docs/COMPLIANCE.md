@@ -11,9 +11,11 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 | Tenant isolation enforced by the database (RLS on every table) | Implemented (migration 0001), tested |
 | Platform credentials kept server-only | Implemented (migration 0001), tested |
 | Append-only audit log | Implemented (migration 0001), tested |
+| Raw platform responses stored unchanged as evidence for every number | Implemented (migration 0003), immutable, tested |
+| Platform tokens never stored in the database, logs or error messages | Implemented in sync and connector, tested. **Production secret store not chosen yet** |
 | Audit entry for every read of client data | Planned |
 | Data retention policy | Planned |
-| Client data deletion endpoint | Planned. Deleting a workspace cascades to its data; audit entries are retained by design |
+| Client data deletion endpoint | Planned. Deleting an ad account or workspace cascades to its synced data (sync runs, raw payloads, metrics; tested); audit entries are retained by design |
 | Consent records for WhatsApp marketing messages | Planned (with WhatsApp) |
 
 ## ZATCA (e-invoicing)
@@ -26,7 +28,7 @@ What is implemented, and what is not yet. Keep this honest: "planned" means not 
 ## Money
 
 - Glio never holds ad spend; the platform charges the business's own card.
-- Amounts will be stored in minor units (halalas); default currency SAR.
+- Amounts are stored in minor units (halalas for SAR) as integers; conversion from platform decimals is exact and a value that would need rounding is rejected (tested). Each ad account keeps its own currency; no currency conversion.
 
 ## Localisation and accessibility
 

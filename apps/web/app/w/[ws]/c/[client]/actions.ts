@@ -6,6 +6,7 @@ import { ClaudeCommentaryModel, createReportSnapshot } from "@glio/reports";
 import { InMemorySecretStore, reconcile, runSync } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
+import { describeError } from "@/lib/errors";
 import { serverDb } from "@/lib/server-db";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -23,6 +24,7 @@ export async function generateReport(formData: FormData) {
   if (!access.canGenerate) redirect(`${base}?e=forbidden`);
 
   let snapshotId: string | null = null;
+  let failure: string | null = null;
   try {
     const result = await createReportSnapshot(
       { db: serverDb(), model: env.anthropicConfigured() ? new ClaudeCommentaryModel() : null },
@@ -30,10 +32,12 @@ export async function generateReport(formData: FormData) {
     );
     snapshotId = result.snapshotId;
   } catch (err) {
-    console.error(JSON.stringify({ event: "report_failed", client, error: err instanceof Error ? err.message : String(err) }));
+    const d = describeError(err);
+    failure = d.code;
+    console.error(JSON.stringify({ event: "report_failed", client, code: d.code, error: d.message }));
   }
   // redirect() must be called outside try/catch.
-  redirect(snapshotId ? `${base}/r/${snapshotId}` : `${base}?e=report`);
+  redirect(snapshotId ? `${base}/r/${snapshotId}` : `${base}?e=report&code=${encodeURIComponent(failure ?? "UNKNOWN")}`);
 }
 
 /**
@@ -52,6 +56,19 @@ export async function loadDemoData(formData: FormData) {
   const access = await clientAccess(ws, client);
   if (!access.canManage) redirect(`${base}?e=forbidden`);
 
+  let failure: string | null = null;
+  try {
+    await syncDemo(ws, client, from, to);
+  } catch (err) {
+    const d = describeError(err);
+    failure = d.code;
+    console.error(JSON.stringify({ event: "demo_sync_failed", client, code: d.code, error: d.message }));
+  }
+  // redirect() must be called outside try/catch.
+  redirect(failure ? `${base}?e=demo&code=${encodeURIComponent(failure)}` : `${base}?from=${from}&to=${to}`);
+}
+
+async function syncDemo(ws: string, client: string, from: string, to: string) {
   const db = serverDb();
   let [account] = await db.query(
     "select id from public.ad_accounts where client_id = $1 and platform = 'tiktok' and external_id = $2",
@@ -72,6 +89,8 @@ export async function loadDemoData(formData: FormData) {
   await secrets.put("demo://synthetic", "demo-token-not-real");
   const deps = { db, connector: new TikTokConnector({ fetch: demoTikTokFetch }), secrets };
   const sync = await runSync(deps, { adAccountId: account!.id, kind: "manual", dateFrom: from, dateTo: to });
-  if (sync.status === "succeeded") await reconcile(deps, { syncRunId: sync.syncRunId });
-  redirect(`${base}?from=${from}&to=${to}`);
+  if (sync.status !== "succeeded") {
+    throw Object.assign(new Error(`Demo sync failed: ${sync.errorCode}`), { code: `SYNC_${sync.errorCode ?? "FAILED"}` });
+  }
+  await reconcile(deps, { syncRunId: sync.syncRunId });
 }

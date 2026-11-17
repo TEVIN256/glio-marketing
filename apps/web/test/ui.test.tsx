@@ -62,3 +62,14 @@ describe("isolateNumbers", () => {
     expect(html).toContain('<span class="num">1.77%</span>');
   });
 });
+
+import { describeError } from "@/lib/errors";
+describe("describeError", () => {
+  it("keeps Postgres/Node codes and strips connection strings from messages", () => {
+    const pgErr = Object.assign(new Error("password authentication failed for user \"postgres.abc\""), { code: "28P01" });
+    expect(describeError(pgErr)).toEqual({ code: "28P01", message: 'password authentication failed for user "postgres.abc"' });
+    const urlErr = Object.assign(new Error("bad postgresql://u:secret@host:6543/db"), { code: "ERR_INVALID_URL" });
+    expect(describeError(urlErr).message).not.toContain("secret");
+    expect(describeError(new Error("x")).code).toBe("UNKNOWN");
+  });
+});

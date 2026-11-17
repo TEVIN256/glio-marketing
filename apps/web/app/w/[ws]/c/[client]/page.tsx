@@ -4,6 +4,7 @@ import type { ReportModel } from "@glio/reports";
 import { ReportView } from "@/components/ReportView";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
+import { ERROR_HINTS } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { generateReport, loadDemoData } from "./actions";
 
@@ -44,7 +45,13 @@ export default async function ClientDashboard({
       <h1>{access.client.name}: {t.dashboard}</h1>
       {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
       {q.e === "period" && <p className="notice error" role="alert">{t.periodError}</p>}
-      {q.e === "report" && <p className="notice error" role="alert">{t.reportError}</p>}
+      {(q.e === "report" || q.e === "demo") && (
+        <p className="notice error" role="alert">
+          {q.e === "report" ? t.reportError : t.demoError}{" "}
+          {q.code && ERROR_HINTS[q.code] ? ERROR_HINTS[q.code]![lang] : null}{" "}
+          {q.code && <code className="num">({q.code})</code>}
+        </p>
+      )}
 
       {access.canGenerate && (
         <form className="card row" action={generateReport}>

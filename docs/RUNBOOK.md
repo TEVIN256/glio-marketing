@@ -51,6 +51,15 @@ Open http://localhost:3000. The app is Arabic by default; the button in the top 
 
 **Demo data:** with `GLIO_DEMO_MODE=1`, an owner or manager sees "Load demo data (synthetic)" on a client page. It attaches a fake TikTok account (`demo-advertiser-001`) and syncs obviously fake numbers for the chosen period, so the dashboard can be tried before TikTok API access. Turn it off (`GLIO_DEMO_MODE=0`) before real clients use the app.
 
+## Production deployment (Vercel)
+
+- Project: Vercel team GLIO MARKETING, project `glio-marketing`, Hobby plan, deploys `main` automatically on every push.
+- Root Directory: `apps/web`. URL: https://glio-marketing.vercel.app
+- Function region: Frankfurt (`fra1`), next to the Supabase database.
+- Environment variables (Production): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Config), `GLIO_DEMO_MODE=1` (Config), `DATABASE_URL` (Secret, Supabase **transaction pooler**, port 6543). Changing a variable needs a redeploy.
+- Supabase Auth: Site URL `https://glio-marketing.vercel.app`; redirect URL `https://glio-marketing.vercel.app/auth/callback`.
+- The Vercel "Supabase" integration is deliberately not used: the app connects to our own Frankfurt project with the migrations in this repo.
+
 ## Apply migrations to Supabase
 
 Migrations live in `supabase/migrations/` and are applied in filename order. They are **not** applied automatically by merging.
@@ -135,7 +144,7 @@ Supabase org GLIO MARKETING, free plan.
 | "glio marketing", Frankfurt, current | 20261117000001_service_role_grants | 2026-11-16 | SQL editor | 7 / true / 20 / 3 / true / true ✔ |
 | "glio marketing", Frankfurt, current | 20261118000001_sync_and_metrics | 2026-11-16 | SQL editor (statements as in the file, comments omitted) | 3 / true / 23 / 3 / true ✔ |
 | "glio marketing", Frankfurt, current | 20261119000001_reconciliation | 2026-11-16 | SQL editor (statements as in the file, comments omitted) | true / true / 24 / 3 / true ✔ |
-| "glio marketing", Frankfurt, current | 20261120000001_reports_and_commentary | pending owner review | | |
+| "glio marketing", Frankfurt, current | 20261120000001_reports_and_commentary | 2026-11-17 | SQL editor | true / true / 26 / 6 ✔ |
 | "glio marketing", Tokyo (`ap-northeast-1`), **retired**, to be deleted | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
 
 Frankfurt project created with "Automatically expose new tables" off and "Enable automatic RLS" on (ADR-007).

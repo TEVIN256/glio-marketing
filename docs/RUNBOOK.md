@@ -58,6 +58,9 @@ Open http://localhost:3000. The app is Arabic by default; the button in the top 
 - Function region: Frankfurt (`fra1`), next to the Supabase database.
 - Environment variables (Production): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Config), `GLIO_DEMO_MODE=1` (Config), `DATABASE_URL` (Secret, Supabase **transaction pooler**, port 6543). Changing a variable needs a redeploy.
 - Supabase Auth: Site URL `https://glio-marketing.vercel.app`; redirect URL `https://glio-marketing.vercel.app/auth/callback`.
+- **Diagnostics:** signed-in workspace owners can open `/diagnostics` to check `DATABASE_URL` from inside Vercel (user, host, port, password length and character classes, live connection test). It never shows secret values.
+- **Lesson from setup:** use the **Transaction pooler** string (port 6543) and a letters-and-digits password. `28P01` means wrong password; "client password must be a string" means the password part is missing. After editing a variable, delete-and-recreate if the old value persists, then redeploy.
+- First end-to-end report on production: 2026-11-18 (synthetic demo data), reconciliation "ok".
 - The Vercel "Supabase" integration is deliberately not used: the app connects to our own Frankfurt project with the migrations in this repo.
 
 ## Apply migrations to Supabase

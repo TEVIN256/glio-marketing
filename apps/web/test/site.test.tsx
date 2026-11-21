@@ -30,21 +30,34 @@ describe("website text", () => {
     }
   });
 
-  it("names the legal entity and the contact email on the privacy policy (needed for platform reviews)", () => {
+  it("the privacy policy names Glio, the contact email and TikTok", () => {
     const html = renderToStaticMarkup(
       <Policy title={site.en.privacyTitle} intro={site.en.privacyIntro} sections={site.en.privacy} lang="en" updatedLabel={site.en.updated} />,
     );
-    expect(html).toContain(COMPANY.legalNameEn);
+    expect(html).toContain("Glio");
     expect(html).toContain(COMPANY.email);
     expect(html).toContain("TikTok");
   });
 
-  it("the footer links the privacy policy and terms and names the company", () => {
+  it("the footer links the privacy policy and terms and shows the brand", () => {
     const html = renderToStaticMarkup(<SiteFooter lang="ar" s={site.ar} />);
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/terms"');
-    expect(html).toContain(COMPANY.legalNameAr);
+    expect(html).toContain(COMPANY.tradeNameAr);
     if (COMPANY.crNumber) expect(html).toContain(COMPANY.crNumber);
+  });
+});
+
+describe("brand only, email only", () => {
+  it("no public text shows the legal entity name or a phone number (owner's choice)", () => {
+    expect(COMPANY.phone).toBeNull();
+    for (const lang of ["ar", "en"] as const) {
+      const all = strings(site[lang]).map((x) => fill(x, lang)).join("\n")
+        + renderToStaticMarkup(<SiteFooter lang={lang} s={site[lang]} />);
+      expect(all).not.toContain(COMPANY.legalNameEn);
+      expect(all).not.toContain(COMPANY.legalNameAr);
+      expect(all).not.toContain("Sutoor");
+    }
   });
 });
 

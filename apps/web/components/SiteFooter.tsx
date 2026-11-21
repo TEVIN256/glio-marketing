@@ -11,8 +11,7 @@ export function SiteFooter({ lang, s }: { lang: "ar" | "en"; s: SiteText }) {
         <a href={`mailto:${COMPANY.email}`} dir="ltr">{COMPANY.email}</a>
       </nav>
       <p className="muted">
-        © <span className="num">{year}</span> {lang === "ar" ? COMPANY.tradeNameAr : COMPANY.tradeNameEn} ·{" "}
-        {lang === "ar" ? COMPANY.legalNameAr : COMPANY.legalNameEn} · {COMPANY.country[lang]}
+        © <span className="num">{year}</span> {lang === "ar" ? COMPANY.tradeNameAr : COMPANY.tradeNameEn} · {COMPANY.country[lang]}
         {COMPANY.crNumber && (
           <>
             {" "}· {s.contactCr} <span className="num">{COMPANY.crNumber}</span>

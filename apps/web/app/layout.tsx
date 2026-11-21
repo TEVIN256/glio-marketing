@@ -8,7 +8,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Glio | غليو · Glio Agency",
   description:
-    "Glio by Glio Agency (Sutoor Almustaqbaliyya Agency): Arabic-first ad operations and reporting for Saudi businesses and agencies.",
+    "Glio by Glio Agency (Sutoor AlMustaqbaliyya Agency for Commercial Services): Arabic-first ad operations and reporting for Saudi businesses and agencies.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

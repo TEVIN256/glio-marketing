@@ -5,7 +5,7 @@
  */
 
 export const COMPANY = {
-  legalNameEn: "Sutoor Almustaqbaliyya Agency",
+  legalNameEn: "Sutoor AlMustaqbaliyya Agency for Commercial Services",
   // TODO(owner): confirm the exact Arabic legal name as written on the Commercial Registration.
   legalNameAr: "وكالة سطور المستقبلية",
   tradeNameEn: "Glio Agency",

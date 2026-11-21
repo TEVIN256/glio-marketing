@@ -43,7 +43,7 @@ Fill in `apps/web/.env.local` (see the comments in the file), then:
 pnpm --filter @glio/web dev
 ```
 
-Open http://localhost:3000. The app is Arabic by default; the button in the top bar switches to English.
+Open http://localhost:3000. `/` is the public company website (with `/privacy` and `/terms`); the product starts at `/app`. Arabic is the default; the button in the top bar switches to English.
 
 **Supabase Auth settings** (Authentication → URL Configuration in the Supabase dashboard):
 - Site URL: the app's address (http://localhost:3000 locally, the real domain later).
@@ -62,6 +62,15 @@ Open http://localhost:3000. The app is Arabic by default; the button in the top 
 - **Lesson from setup:** use the **Transaction pooler** string (port 6543) and a letters-and-digits password. `28P01` means wrong password; "client password must be a string" means the password part is missing. After editing a variable, delete-and-recreate if the old value persists, then redeploy.
 - First end-to-end report on production: 2026-11-18 (synthetic demo data), reconciliation "ok".
 - The Vercel "Supabase" integration is deliberately not used: the app connects to our own Frankfurt project with the migrations in this repo.
+
+## Company domain (glioagency.org)
+
+- **Registrar:** bought through Shopify (Tucows). Keep auto-renew on and don't cancel Shopify until the registration has been transferred out (planned: Cloudflare Registrar).
+- **DNS:** Cloudflare (Free plan), nameservers `jasper.ns.cloudflare.com` and `wren.ns.cloudflare.com`, set in Shopify (Settings → Domains → glioagency.org → Nameservers) on 2026-11-21. All records are **DNS only** (grey cloud). DNSSEC was off at the time of the move.
+- **Email (Google Workspace) records, never remove:** MX `@` → `1 smtp.google.com`; TXT `google._domainkey` (DKIM); TXT `@` `google-site-verification=…`; CNAME `lux76ui4abpo` → `gv-3aytjlepuizq5r.dv.googlehosted.com`; TXT `@` `v=spf1 include:_spf.google.com ~all` (added at the move; there was no SPF before). Resend: TXT `resend._domainkey`, TXT `send` (`v=spf1 include:amazonses.com ~all`).
+- **Undo:** in Shopify, "Restore Shopify nameservers" (the old ones were `ns-cloud-b1`–`b4.googledomains.com`).
+- **Check from anywhere:** `https://dns.google/resolve?name=glioagency.org&type=NS` (and `type=MX`, `type=TXT`, `name=google._domainkey.glioagency.org&type=TXT`).
+- **Website:** the A/AAAA/`www` records still point at Shopify until the site is moved to Vercel. To move: add `glioagency.org` and `www.glioagency.org` to the Vercel project (Settings → Domains), replace the A/AAAA/`www` records in Cloudflare with the values Vercel shows (DNS only), then update Supabase Auth (Site URL `https://glioagency.org`, redirect URL `https://glioagency.org/auth/callback`; keep the vercel.app ones until nothing uses them).
 
 ## Apply migrations to Supabase
 

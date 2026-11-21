@@ -31,7 +31,7 @@ export default async function WorkspacePage({
 
   return (
     <div className="stack">
-      <p><a href="/">← {t.workspaces}</a></p>
+      <p><a href="/app">← {t.workspaces}</a></p>
       <h1>{workspace.name}</h1>
       <h2>{t.clients}</h2>
       {clients && clients.length > 0 ? (

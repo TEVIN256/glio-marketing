@@ -3,10 +3,16 @@ import { type NextRequest, NextResponse } from "next/server";
 
 /**
  * Runs before every page: refreshes the Supabase session cookie and sends
- * signed-out visitors to /login. Pages still check the user themselves
+ * signed-out visitors to /login, except on the public website pages. Pages still check the user themselves
  * (requireUser); this is not the security boundary, RLS is.
  */
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
+const PUBLIC_PREFIXES = ["/login", "/auth/callback", "/privacy", "/terms"];
+
+/** The company website (home, privacy, terms) and the sign-in pages are public. */
+export function isPublicPath(pathname: string): boolean {
+  if (pathname === "/") return true;
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -34,8 +40,7 @@ export async function proxy(request: NextRequest) {
     signedIn = false;
   }
 
-  const isPublic = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
-  if (!signedIn && !isPublic) {
+  if (!signedIn && !isPublicPath(request.nextUrl.pathname)) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return response;

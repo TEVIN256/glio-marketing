@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Policy } from "@/components/Policy";
+import { SiteFooter } from "@/components/SiteFooter";
+import { COMPANY, fill, site } from "@/lib/site";
+import { isPublicPath } from "../proxy";
+
+/** Same keys, same number of sections/bullets/paragraphs in both languages, nothing empty. */
+function shape(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(shape);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).sort().map(([k, x]) => [k, shape(x)]));
+  return typeof v;
+}
+function strings(v: unknown): string[] {
+  if (typeof v === "string") return [v];
+  if (Array.isArray(v)) return v.flatMap(strings);
+  if (v && typeof v === "object") return Object.values(v).flatMap(strings);
+  return [];
+}
+
+describe("website text", () => {
+  it("Arabic and English have the same structure and no empty text", () => {
+    expect(shape(site.ar)).toEqual(shape(site.en));
+    for (const s of [...strings(site.ar), ...strings(site.en)]) expect(s.trim()).not.toBe("");
+  });
+
+  it("every placeholder is filled in both languages", () => {
+    for (const lang of ["ar", "en"] as const) {
+      for (const s of strings(site[lang])) expect(fill(s, lang), s).not.toMatch(/\{\w+\}/);
+    }
+  });
+
+  it("names the legal entity and the contact email on the privacy policy (needed for platform reviews)", () => {
+    const html = renderToStaticMarkup(
+      <Policy title={site.en.privacyTitle} intro={site.en.privacyIntro} sections={site.en.privacy} lang="en" updatedLabel={site.en.updated} />,
+    );
+    expect(html).toContain(COMPANY.legalNameEn);
+    expect(html).toContain(COMPANY.email);
+    expect(html).toContain("TikTok");
+  });
+
+  it("the footer links the privacy policy and terms and names the company", () => {
+    const html = renderToStaticMarkup(<SiteFooter lang="ar" s={site.ar} />);
+    expect(html).toContain('href="/privacy"');
+    expect(html).toContain('href="/terms"');
+    expect(html).toContain(COMPANY.legalNameAr);
+  });
+});
+
+describe("public paths", () => {
+  it("the website and sign-in pages are public; the app is not", () => {
+    for (const p of ["/", "/privacy", "/terms", "/login", "/auth/callback"]) expect(isPublicPath(p), p).toBe(true);
+    for (const p of ["/app", "/w/123", "/diagnostics", "/privacyx", "/terms-admin"]) expect(isPublicPath(p), p).toBe(false);
+  });
+});

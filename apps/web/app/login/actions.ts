@@ -16,7 +16,7 @@ export async function signIn(formData: FormData) {
   const supabase = await supabaseAsUser();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect("/login?e=auth");
-  redirect("/");
+  redirect("/app");
 }
 
 export async function signUp(formData: FormData) {

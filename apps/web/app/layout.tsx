@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/SiteFooter";
 import { getDict } from "@/lib/i18n";
+import { site } from "@/lib/site";
 import { switchLanguage } from "./actions";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Glio | غليو",
-  description: "Arabic-first ad reporting for Saudi businesses and agencies",
+  title: "Glio | غليو · Glio Agency",
+  description:
+    "Glio by Glio Agency (Sutoor Almustaqbaliyya Agency): Arabic-first ad operations and reporting for Saudi businesses and agencies.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {t.appName}
           </a>
           <div className="topbar-actions">
+            <a className="button secondary" href="/app">{site[lang].openApp}</a>
             <form action={switchLanguage}>
               <input type="hidden" name="lang" value={lang === "ar" ? "en" : "ar"} />
               <button className="secondary" type="submit" lang={lang === "ar" ? "en" : "ar"}>
@@ -34,6 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main>{children}</main>
+        <SiteFooter lang={lang} s={site[lang]} />
       </body>
     </html>
   );

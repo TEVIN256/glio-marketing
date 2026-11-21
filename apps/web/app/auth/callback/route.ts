@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (code) {
     const supabase = await supabaseAsUser();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL("/", request.url));
+    if (!error) return NextResponse.redirect(new URL("/app", request.url));
   }
   return NextResponse.redirect(new URL("/login?e=auth", request.url));
 }

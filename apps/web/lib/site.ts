@@ -18,7 +18,7 @@ export const COMPANY = {
   // TODO(owner): fill in when the owner decides what to publish.
   city: null as { en: string; ar: string } | null,
   phone: null as string | null,
-  crNumber: null as string | null,
+  crNumber: "7042386917" as string | null,
 } as const;
 
 export const POLICY_UPDATED = "2026-11-21";

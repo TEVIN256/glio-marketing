@@ -44,6 +44,7 @@ describe("website text", () => {
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/terms"');
     expect(html).toContain(COMPANY.legalNameAr);
+    if (COMPANY.crNumber) expect(html).toContain(COMPANY.crNumber);
   });
 });
 

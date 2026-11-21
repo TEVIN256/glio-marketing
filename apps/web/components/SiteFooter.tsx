@@ -1,5 +1,6 @@
 import { COMPANY, type SiteText } from "@/lib/site";
 
+/** Public site footer: brand, email, CR number, legal links. The legal entity name is not shown (owner's choice). */
 export function SiteFooter({ lang, s }: { lang: "ar" | "en"; s: SiteText }) {
   const year = new Date().getUTCFullYear();
   return (

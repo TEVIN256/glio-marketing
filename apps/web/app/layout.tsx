@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { SiteFooter } from "@/components/SiteFooter";
 import { getDict } from "@/lib/i18n";
-import { site } from "@/lib/site";
-import { switchLanguage } from "./actions";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Glio | غليو",
-  description:
-    "Glio: Arabic-first ad operations and reporting for Saudi businesses and agencies.",
+  title: "GLIO | غليو",
+  description: "GLIO: ad operators and AI agents for Saudi businesses. Paid ads, tracking and SEO, with reconciled numbers and Arabic reports.",
 };
 
+/** Page shell only. The public website and the app each add their own header in their route group. */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { lang, t, dir } = await getDict();
+  const { lang, dir } = await getDict();
   return (
     <html lang={lang} dir={dir}>
       <head>
@@ -22,24 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap"
         />
       </head>
-      <body>
-        <header className="topbar">
-          <a className="brand" href="/">
-            {t.appName}
-          </a>
-          <div className="topbar-actions">
-            <a className="button secondary" href="/app">{site[lang].openApp}</a>
-            <form action={switchLanguage}>
-              <input type="hidden" name="lang" value={lang === "ar" ? "en" : "ar"} />
-              <button className="secondary" type="submit" lang={lang === "ar" ? "en" : "ar"}>
-                {t.switchLang}
-              </button>
-            </form>
-          </div>
-        </header>
-        <main>{children}</main>
-        <SiteFooter lang={lang} s={site[lang]} />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

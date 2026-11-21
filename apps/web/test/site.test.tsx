@@ -48,6 +48,20 @@ describe("website text", () => {
   });
 });
 
+describe("home page content", () => {
+  it("offers exactly the three agency services the owner chose, in both languages", () => {
+    expect(site.en.services.map((x) => x.heading)).toEqual(["Paid ads management", "Tracking + data setup", "SEO + visibility"]);
+    expect(site.ar.services).toHaveLength(3);
+  });
+  it("the demo request goes to the company email with a ready-made subject and body", () => {
+    for (const lang of ["ar", "en"] as const) {
+      expect(site[lang].demoSubject.length).toBeGreaterThan(5);
+      expect(site[lang].demoBody).toContain("\n");
+    }
+    expect(COMPANY.email).toBe("info@glioagency.org");
+  });
+});
+
 describe("brand only, email only", () => {
   it("no public text shows the legal entity name or a phone number (owner's choice)", () => {
     expect(COMPANY.phone).toBeNull();

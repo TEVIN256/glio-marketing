@@ -11,7 +11,7 @@ export const COMPANY = {
   legalNameEn: "Sutoor AlMustaqbaliyya Agency for Commercial Services",
   // TODO(owner): confirm the exact Arabic legal name as written on the Commercial Registration.
   legalNameAr: "وكالة سطور المستقبلية",
-  tradeNameEn: "Glio",
+  tradeNameEn: "GLIO",
   tradeNameAr: "غليو",
   productEn: "Glio",
   productAr: "غليو",
@@ -31,14 +31,45 @@ type Section = { heading: string; paragraphs: string[]; bullets?: string[] };
 export const site = {
   ar: {
     navHome: "الرئيسية",
+    navServices: "الخدمات",
+    navPlatform: "المنصة",
+    navDemo: "اطلب عرضًا",
     navPrivacy: "سياسة الخصوصية",
     navTerms: "الشروط والأحكام",
-    openApp: "الدخول إلى المنصة",
-    heroTitle: "عمليات إعلانية أذكى، بالعربية أولاً",
+    switchLang: "English",
+    signIn: "تسجيل الدخول",
+    eyebrow: "عمليات إعلانية · المملكة العربية السعودية",
+    heroTitle1: "لا تحتاج إلى تسويق.",
+    heroTitle2a: "تحتاج إلى ",
+    heroTitle2b: "نتائج.",
     heroText:
-      "غليو منصة للشركات والوكالات في السعودية لإدارة الإعلانات الرقمية وقياسها: تجمع أرقام الحملات من المنصات الإعلانية، وتطابقها مع المنصة نفسها، وتكتب تقارير عربية واضحة لكل عميل.",
-    heroCta: "الدخول إلى المنصة",
-    heroSecondary: "تواصل معنا",
+      "غليو يجمع فريقًا من مشغّلي الإعلانات مع منصة غليو: وكلاء ذكاء اصطناعي يتابعون حملاتك يوميًا، وأرقام مطابقة للمنصات الإعلانية، وتقارير عربية واضحة. أنت توافق، ونحن ننفّذ.",
+    heroCta: "اطلب عرضًا توضيحيًا",
+    heroSecondary: "استعرض الخدمات",
+    platformsTitle: "نعمل على",
+    servicesKicker: "01 / الخدمات",
+    servicesTitle: "ثلاث خدمات، فريق واحد.",
+    servicesIntro: "نعمل كفريق تسويقك المتكامل: نجهّز بياناتك، وندير إعلاناتك، ونحرص على أن يجدك العملاء في البحث. كمشروع إعداد لمرة واحدة، أو اشتراك شهري، أو الاثنين معًا.",
+    services: [
+      {
+        heading: "إدارة الإعلانات المدفوعة",
+        paragraphs: ["إدارة يومية للحملات على ميتا وجوجل وتيك توك وسناب شات: الاستراتيجية، والمزايدة، وإعادة الاستهداف، وتقسيم الجماهير. يتابعها مشغّل يقرأ أرقام مبيعاتك، ويساعده وكلاء غليو، ولا يُنفَّذ أي تغيير على الميزانية دون موافقتك."],
+        bullets: ["Meta", "Google", "TikTok", "Snapchat"],
+      },
+      {
+        heading: "إعداد التتبع والبيانات",
+        paragraphs: ["نجهّز منظومة التحليلات والبكسلات قبل تشغيل أول إعلان: GA4 وGoogle Tag Manager وبكسلات ميتا وتيك توك وسناب، والتتبع من جهة الخادم، ومعايير UTM، وربط Search Console وMerchant Center."],
+        bullets: ["GA4", "GTM", "Pixels", "Server-side"],
+      },
+      {
+        heading: "تحسين الظهور في البحث",
+        paragraphs: ["استراتيجية كلمات مفتاحية مطبّقة على صفحاتك ومنتجاتك، وبيانات منظّمة، وإعداد Search Console وMerchant Center، والظهور المحلي عبر خرائط جوجل وملف النشاط التجاري."],
+        bullets: ["Keywords", "Schema", "Local SEO", "Maps"],
+      },
+    ] as Section[],
+    platformKicker: "02 / المنصة",
+    platformTitle: "منصة غليو",
+    platformIntro: "المنصة التي يعمل عليها فريقنا، ومتاحة لعملائنا: نبدأ بتيك توك، وتليها سناب شات وميتا وجوجل.",
     featuresTitle: "ماذا تقدّم غليو",
     features: [
       {
@@ -60,10 +91,10 @@ export const site = {
     ] as Section[],
     howTitle: "كيف تعمل",
     howSteps: [
-      "أنشئ حسابًا ومساحة عمل لنشاطك التجاري أو لوكالتك.",
-      "اربط حساب الإعلانات بموافقتك عبر صفحة المنصة الرسمية.",
-      "تجلب غليو أرقام الأداء يوميًا وتطابقها مع المنصة.",
-      "استلم تقارير واضحة، ووافق على أي تغيير مقترح قبل تنفيذه.",
+      "اطلب عرضًا توضيحيًا، ونراجع معك حساباتك الإعلانية وإعداد التتبع.",
+      "تربط حساباتك الإعلانية بموافقتك عبر صفحة المنصة الرسمية.",
+      "يتابع فريقنا ووكلاء غليو حملاتك يوميًا ويقترحون التحسينات.",
+      "توافق على أي تغيير قبل تنفيذه، وتستلم تقارير عربية واضحة.",
     ],
     trustTitle: "مبادئنا",
     trust: [
@@ -82,6 +113,12 @@ export const site = {
     contactCr: "رقم السجل التجاري",
     footerRights: "جميع الحقوق محفوظة",
     updated: "آخر تحديث",
+    demoKicker: "03 / عرض توضيحي",
+    demoTitle: "اطلب عرضًا توضيحيًا",
+    demoText: "راسلنا باسم شركتك وموقعك والمنصات الإعلانية التي تستخدمها وميزانيتك الشهرية التقريبية، وسنرتّب معك عرضًا لحساباتك.",
+    demoCta: "راسلنا لطلب عرض",
+    demoSubject: "طلب عرض توضيحي - غليو",
+    demoBody: "الشركة:\nالموقع الإلكتروني:\nالمنصات الإعلانية:\nالميزانية الشهرية التقريبية:\n",
     privacyTitle: "سياسة الخصوصية",
     privacyIntro:
       "توضح هذه السياسة كيف تجمع {tradeName} البيانات وتستخدمها وتحميها عند استخدام موقع {domain} ومنصة غليو، وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية.",
@@ -94,6 +131,7 @@ export const site = {
           "بيانات مساحة العمل: أسماء العملاء وأسماء أعضاء الفريق وصلاحياتهم.",
           "بيانات المنصات الإعلانية التي تربطها بموافقتك: معرّف الحساب الإعلاني واسمه وعملته، وأرقام أداء الحملات (الإنفاق، الظهور، النقرات، التحويلات) وأسماء الحملات.",
           "سجل تدقيق بالإجراءات المهمة داخل المنصة (مثل إنشاء تقرير أو عرض لوحة عميل).",
+          "ما ترسله إلينا بالبريد الإلكتروني، مثل طلب عرض توضيحي (الاسم، الشركة، الموقع، بيانات التواصل).",
         ],
       },
       {
@@ -150,7 +188,8 @@ export const site = {
     terms: [
       {
         heading: "الخدمة",
-        paragraphs: ["غليو أداة لعرض أداء الإعلانات الرقمية وإعداد التقارير واقتراح التحسينات وتنفيذ ما توافق عليه منها. الخدمة في مرحلة الإطلاق الأولى وقد تتغير ميزاتها."],
+        paragraphs: ["غليو أداة لعرض أداء الإعلانات الرقمية وإعداد التقارير واقتراح التحسينات وتنفيذ ما توافق عليه منها. الخدمة في مرحلة الإطلاق الأولى وقد تتغير ميزاتها.",
+          "تقدّم غليو أيضًا خدمات إدارة الإعلانات وإعداد التتبع وتحسين الظهور في محركات البحث، بموجب اتفاق مستقل مع كل عميل."],
       },
       {
         heading: "الحساب",
@@ -195,14 +234,45 @@ export const site = {
   },
   en: {
     navHome: "Home",
+    navServices: "Services",
+    navPlatform: "Platform",
+    navDemo: "Ask for a demo",
     navPrivacy: "Privacy policy",
     navTerms: "Terms of service",
-    openApp: "Sign in to Glio",
-    heroTitle: "Smarter ad operations, Arabic first",
+    switchLang: "العربية",
+    signIn: "Sign in",
+    eyebrow: "Ad operations · Saudi Arabia",
+    heroTitle1: "You don't need marketing.",
+    heroTitle2a: "You need ",
+    heroTitle2b: "results.",
     heroText:
-      "Glio is a platform for businesses and agencies in Saudi Arabia to run and measure digital advertising. It collects campaign figures from ad platforms, reconciles them against the platform itself, and writes clear Arabic reports for every client.",
-    heroCta: "Sign in to Glio",
-    heroSecondary: "Contact us",
+      "GLIO combines a team of ad operators with the Glio platform: AI agents that watch your campaigns every day, numbers reconciled with the ad platforms, and clear Arabic reports. You approve, we execute.",
+    heroCta: "Ask for a demo",
+    heroSecondary: "See our services",
+    platformsTitle: "Working across",
+    servicesKicker: "01 / Services",
+    servicesTitle: "Three services, one team.",
+    servicesIntro: "We work as your full marketing team: we wire your data, run your ads, and make sure customers find you in search. As a one-time setup project, a monthly retainer, or both.",
+    services: [
+      {
+        heading: "Paid ads management",
+        paragraphs: ["Daily campaign management across Meta, Google, TikTok and Snapchat: strategy, bidding, retargeting and audience segmentation. Run by an operator who reads your sales numbers, helped by Glio's agents, and no budget change happens without your approval."],
+        bullets: ["Meta", "Google", "TikTok", "Snapchat"],
+      },
+      {
+        heading: "Tracking + data setup",
+        paragraphs: ["Your analytics and pixel stack wired before the first ad runs: GA4, Google Tag Manager, Meta, TikTok and Snap pixels, server-side tagging, UTM standards, Search Console and Merchant Center."],
+        bullets: ["GA4", "GTM", "Pixels", "Server-side"],
+      },
+      {
+        heading: "SEO + visibility",
+        paragraphs: ["Keyword strategy implemented across your pages and products, structured data, Search Console and Merchant Center set up, and local visibility through Google Maps and your Business Profile."],
+        bullets: ["Keywords", "Schema", "Local SEO", "Maps"],
+      },
+    ] as Section[],
+    platformKicker: "02 / Platform",
+    platformTitle: "The Glio platform",
+    platformIntro: "The platform our team works on, and that our clients can use: TikTok first, followed by Snapchat, Meta and Google.",
     featuresTitle: "What Glio does",
     features: [
       {
@@ -224,10 +294,10 @@ export const site = {
     ] as Section[],
     howTitle: "How it works",
     howSteps: [
-      "Create an account and a workspace for your business or agency.",
-      "Connect your ad account with your consent through the platform's official page.",
-      "Glio fetches performance figures daily and reconciles them with the platform.",
-      "Receive clear reports, and approve any suggested change before it runs.",
+      "Ask for a demo, and we review your ad accounts and tracking with you.",
+      "Connect your ad accounts with your consent through each platform's official page.",
+      "Our team and Glio's agents watch your campaigns daily and suggest improvements.",
+      "You approve any change before it runs, and receive clear Arabic reports.",
     ],
     trustTitle: "Our principles",
     trust: [
@@ -246,6 +316,12 @@ export const site = {
     contactCr: "Commercial Registration No.",
     footerRights: "All rights reserved",
     updated: "Last updated",
+    demoKicker: "03 / Demo",
+    demoTitle: "Ask for a demo",
+    demoText: "Email us your company name, website, the ad platforms you use and your approximate monthly budget, and we'll set up a demo on your accounts.",
+    demoCta: "Email us for a demo",
+    demoSubject: "Demo request - GLIO",
+    demoBody: "Company:\nWebsite:\nAd platforms:\nApproximate monthly budget:\n",
     privacyTitle: "Privacy policy",
     privacyIntro:
       "This policy explains how {tradeName} collects, uses and protects data when you use {domain} and the Glio platform, in line with the Saudi Personal Data Protection Law (PDPL).",
@@ -258,6 +334,7 @@ export const site = {
           "Workspace data: client names, team members' names and their roles.",
           "Ad platform data you connect with your consent: the ad account ID, name and currency, campaign names, and campaign performance figures (spend, impressions, clicks, conversions).",
           "An audit log of important actions in the platform (such as creating a report or viewing a client dashboard).",
+          "What you send us by email, such as a demo request (name, company, website, contact details).",
         ],
       },
       {
@@ -314,7 +391,8 @@ export const site = {
     terms: [
       {
         heading: "The service",
-        paragraphs: ["Glio is a tool to view digital advertising performance, prepare reports, suggest improvements and carry out the ones you approve. The service is in its first launch phase and its features may change."],
+        paragraphs: ["Glio is a tool to view digital advertising performance, prepare reports, suggest improvements and carry out the ones you approve. The service is in its first launch phase and its features may change.",
+          "Glio also provides managed advertising, tracking setup and SEO services under a separate agreement with each client."],
       },
       {
         heading: "Your account",

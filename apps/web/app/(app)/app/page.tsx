@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDict } from "@/lib/i18n";
 import { requireUser } from "@/lib/supabase/server";
-import { signOut } from "../actions";
+import { signOut } from "@/app/actions";
 
 async function createWorkspace(formData: FormData) {
   "use server";

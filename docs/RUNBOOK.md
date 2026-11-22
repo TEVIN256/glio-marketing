@@ -73,6 +73,15 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - **Website (live since 2026-11-21):** `www.glioagency.org` is the main address, served by the Vercel project `glio-marketing`; `glioagency.org` redirects there (308). Cloudflare records: CNAME `@` and CNAME `www` → the `…vercel-dns-017.com` value shown in Vercel → Settings → Domains (DNS only). The Shopify A/AAAA/www records were removed; the old Shopify store and its theme repository are untouched. **Still to do:** Supabase Auth → Site URL `https://www.glioagency.org`, add redirect URL `https://www.glioagency.org/auth/callback` (keep the vercel.app ones).
 - **DMARC:** TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:…@dmarc-reports.cloudflare.net` (Cloudflare DMARC Management, monitor only). After a few weeks of reports showing only Google Workspace and Resend, move to `p=quarantine`.
 
+## TikTok Marketing API app
+
+- Developer account on the TikTok for Business developer portal (business-api.tiktok.com/portal), signed in with info@glioagency.org. Developer registration submitted 2026-11-22 (company: the legal name on the CR, website https://www.glioagency.org, location Saudi Arabia, region EMEA, services: Campaign Management, Reporting, Ad Measurement, Accounts).
+- App **GLIO** (Marketing API) submitted 2026-11-22, status **Pending** (TikTok says up to 3 days).
+  - Advertiser redirect URL: `https://www.glioagency.org/integrations/tiktok/callback` (must match exactly, with `www`).
+  - Scopes: Ad account management, Ads management, Reporting. Nothing else; request more (e.g. Pixel management) only with a reason.
+- After approval the portal shows the **App ID** and **Secret**. Put them in Vercel as `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (**Secret**); never in chat, code or logs.
+- The callback page is a placeholder until the connection flow ships: it stores nothing and never echoes the auth code.
+
 ## Apply migrations to Supabase
 
 Migrations live in `supabase/migrations/` and are applied in filename order. They are **not** applied automatically by merging.

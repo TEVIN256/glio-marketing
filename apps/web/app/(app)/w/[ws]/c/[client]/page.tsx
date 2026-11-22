@@ -129,6 +129,9 @@ export default async function ClientDashboard({
             <input id="to" name="to" type="date" defaultValue={to} required dir="ltr" />
           </div>
           <button type="submit">{t.generateReport}</button>
+          {access.canManage && (
+            <button className="secondary" type="submit" formAction={sendReportNow}>{t.emailSendNow}</button>
+          )}
           {access.canManage && tiktokAccounts.some((a) => a.status === "active") && (
             <button className="secondary" type="submit" formAction={syncTikTok}>{t.tiktokSync}</button>
           )}
@@ -187,15 +190,7 @@ export default async function ClientDashboard({
                 <button type="submit">{t.save}</button>
               </div>
             </form>
-            <form action={sendReportNow}>
-              <input type="hidden" name="ws" value={ws} />
-              <input type="hidden" name="client" value={client} />
-              <input type="hidden" name="from" value={from} />
-              <input type="hidden" name="to" value={to} />
-              <button className="secondary" type="submit">
-                {t.emailSendNow} <span className="num">({from} → {to})</span>
-              </button>
-            </form>
+            <p className="muted">{t.emailSendNowHint}</p>
           </>
         )}
         {recentDeliveries && recentDeliveries.length > 0 && (

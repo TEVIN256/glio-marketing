@@ -24,6 +24,8 @@ export type Actor =
   | { kind: "superuser" };
 
 export class TestDb {
+  private destroying = false;
+
   private constructor(
     private readonly admin: pg.Client,
     readonly pool: pg.Pool,
@@ -47,6 +49,11 @@ export class TestDb {
     const pool = new pg.Pool({ connectionString: dbUrl.toString(), max: 4 });
 
     const db = new TestDb(admin, pool, name);
+    // Dropping the database at teardown terminates connections that are still
+    // closing (57P01). Expected then; anywhere else it is a real failure.
+    pool.on("connect", (client) => client.on("error", (err: Error & { code?: string }) => {
+      if (!(db.destroying && err.code === "57P01")) throw err;
+    }));
     await db.applySql(readFileSync(SHIM, "utf8"));
     for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort()) {
       await db.applySql(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
@@ -59,7 +66,15 @@ export class TestDb {
   }
 
   async destroy(): Promise<void> {
+    this.destroying = true;
     await this.pool.end();
+    // pool.end() can resolve before every socket has closed; wait for the
+    // server to see them gone so the drop below doesn't cut one off.
+    for (let i = 0; i < 40; i++) {
+      const { rows } = await this.admin.query("select count(*)::int as n from pg_stat_activity where datname = $1", [this.name]);
+      if (rows[0]?.n === 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
     await this.admin.query(`drop database if exists ${this.name} with (force)`);
     await this.admin.end();
   }

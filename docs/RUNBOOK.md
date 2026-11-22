@@ -80,7 +80,12 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
   - Advertiser redirect URL: `https://www.glioagency.org/integrations/tiktok/callback` (must match exactly, with `www`).
   - Scopes: Ad account management, Ads management, Reporting. Nothing else; request more (e.g. Pixel management) only with a reason.
 - After approval the portal shows the **App ID** and **Secret**. Put them in Vercel as `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (**Secret**); never in chat, code or logs.
-- The callback page is a placeholder until the connection flow ships: it stores nothing and never echoes the auth code.
+- **Connection flow (built 2026-11-22, ADR-016):** client page → "Connect TikTok" → TikTok authorization → `/integrations/tiktok/callback` → accounts attached to the client, token in Supabase Vault → "Sync TikTok data" (uses the period form) → reports as before.
+- **Before the first real connection:**
+  1. Check Vault in the Supabase SQL editor: `select exists (select 1 from pg_extension where extname = 'supabase_vault') as vault_on;` expect `true`. If `false`, enable it under Database → Extensions (supabase_vault).
+  2. Add `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (Secret) in Vercel, then redeploy.
+  3. Connect one real account, sync a short period, and compare the dashboard with TikTok Ads Manager. Then resolve every `TODO(verify)` in `packages/connectors/src/tiktok/api.ts` and replace the fixtures with an anonymised real response.
+- Error codes on the client page: `TIKTOK_NOT_CONFIGURED` (Vercel variables missing), `TIKTOK_CANCELLED` (not approved on TikTok), `TIKTOK_NO_ACCOUNTS`, `3F000` / `42883` (Vault not enabled), `tiktok_<n>` (TikTok API error code).
 
 ## Apply migrations to Supabase
 

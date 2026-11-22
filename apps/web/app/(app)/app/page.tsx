@@ -43,7 +43,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       )}
 
       <h2>{t.createWorkspace}</h2>
-      {q.e && <p className="notice error" role="alert">{t.createError}</p>}
+      {q.e && <p className="notice error" role="alert">{q.e === "tiktok_state" ? t.tiktokStateError : t.createError}</p>}
       <form className="card stack" action={createWorkspace}>
         <div>
           <label htmlFor="ws-name">{t.workspaceName}</label>

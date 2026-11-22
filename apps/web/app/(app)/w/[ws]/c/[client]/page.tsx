@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { DEMO_EXTERNAL_ID } from "@glio/connectors";
 import { addDays, todayIn } from "@glio/core";
 import type { ReportModel } from "@glio/reports";
 import { ReportView } from "@/components/ReportView";
@@ -6,7 +7,9 @@ import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { ERROR_HINTS } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
-import { generateReport, loadDemoData } from "./actions";
+import { connectTikTok, generateReport, loadDemoData, syncTikTok } from "./actions";
+
+const fill = (text: string, n: string | undefined) => text.replace("{n}", String(Number(n) || 0));
 
 export default async function ClientDashboard({
   params, searchParams,
@@ -30,6 +33,16 @@ export default async function ClientDashboard({
     .order("created_at", { ascending: false })
     .limit(20);
   const latest = snapshots?.[0];
+  const { data: tiktokRows } = await supabase
+    .from("ad_accounts")
+    .select("id, name, external_id, currency, status")
+    .eq("client_id", client)
+    .eq("platform", "tiktok")
+    .order("created_at");
+  const tiktokAccounts = (tiktokRows ?? []).filter((a) => a.external_id !== DEMO_EXTERNAL_ID);
+  const statusLabel: Record<string, string> = {
+    active: t.statusActive, pending: t.statusPending, disconnected: t.statusDisconnected, error: t.statusError,
+  };
   const { data: commentary } = latest
     ? await supabase.from("ai_commentary").select("text_ar, text_en, source").eq("id", latest.commentary_id).maybeSingle()
     : { data: null };
@@ -45,13 +58,48 @@ export default async function ClientDashboard({
       <h1>{access.client.name}: {t.dashboard}</h1>
       {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
       {q.e === "period" && <p className="notice error" role="alert">{t.periodError}</p>}
-      {(q.e === "report" || q.e === "demo") && (
+      {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync") && (
         <p className="notice error" role="alert">
-          {q.e === "report" ? t.reportError : t.demoError}{" "}
+          {{ report: t.reportError, demo: t.demoError, tiktok: t.tiktokError, sync: t.syncError }[q.e]}{" "}
           {q.code && ERROR_HINTS[q.code] ? ERROR_HINTS[q.code]![lang] : null}{" "}
           {q.code && <code className="num">({q.code})</code>}
         </p>
       )}
+
+      {q.tt === "connected" && (
+        <p className="notice" role="status">
+          {fill(t.tiktokConnected, q.n)} {Number(q.c) > 0 && fill(t.tiktokConflicts, q.c)}
+        </p>
+      )}
+      {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
+
+      <section className="card stack" aria-labelledby="tiktok-h">
+        <h2 id="tiktok-h" style={{ marginBlock: 0 }}>{t.tiktokTitle}</h2>
+        {tiktokAccounts.length > 0 ? (
+          <ul className="list">
+            {tiktokAccounts.map((a) => (
+              <li key={a.id}>
+                {a.name ?? a.external_id} <span className="muted num">({a.external_id})</span>
+                {a.currency && <span className="muted"> · <span className="num">{a.currency}</span></span>}
+                <span className="muted"> · {statusLabel[a.status] ?? a.status}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">{t.tiktokNone}</p>
+        )}
+        {access.canManage && (env.tiktokConfigured() ? (
+          <form action={connectTikTok}>
+            <input type="hidden" name="ws" value={ws} />
+            <input type="hidden" name="client" value={client} />
+            <button type="submit" className={tiktokAccounts.length > 0 ? "secondary" : undefined}>
+              {tiktokAccounts.length > 0 ? t.tiktokReconnect : t.tiktokConnect}
+            </button>
+          </form>
+        ) : (
+          <p className="muted">{t.tiktokPending}</p>
+        ))}
+      </section>
 
       {access.canGenerate && (
         <form className="card row" action={generateReport}>
@@ -66,6 +114,9 @@ export default async function ClientDashboard({
             <input id="to" name="to" type="date" defaultValue={to} required dir="ltr" />
           </div>
           <button type="submit">{t.generateReport}</button>
+          {access.canManage && tiktokAccounts.some((a) => a.status === "active") && (
+            <button className="secondary" type="submit" formAction={syncTikTok}>{t.tiktokSync}</button>
+          )}
           {env.demoMode() && access.canManage && (
             <button className="secondary" type="submit" formAction={loadDemoData} title={t.demoNote}>{t.demoData}</button>
           )}

@@ -23,4 +23,9 @@ export const ERROR_HINTS: Record<string, { ar: string; en: string }> = {
   ERR_INVALID_URL: { ar: "صيغة DATABASE_URL غير صحيحة.", en: "DATABASE_URL is not a valid connection string." },
   "42P01": { ar: "جدول ناقص: هل طُبّقت جميع ملفات الترحيل؟", en: "A table is missing: have all migrations been applied?" },
   "42501": { ar: "صلاحيات قاعدة البيانات غير كافية.", en: "Insufficient database privileges." },
+  "3F000": { ar: "خزنة Supabase (Vault) غير مفعّلة في المشروع.", en: "Supabase Vault is not enabled in the project." },
+  "42883": { ar: "خزنة Supabase (Vault) غير مفعّلة في المشروع.", en: "Supabase Vault is not enabled in the project." },
+  TIKTOK_CANCELLED: { ar: "لم تتم الموافقة على الربط في تيك توك.", en: "The connection wasn't approved on TikTok." },
+  TIKTOK_NOT_CONFIGURED: { ar: "بيانات تطبيق تيك توك (TIKTOK_APP_ID و TIKTOK_APP_SECRET) غير مضبوطة في Vercel.", en: "The TikTok app credentials (TIKTOK_APP_ID, TIKTOK_APP_SECRET) are not set in Vercel." },
+  TIKTOK_NO_ACCOUNTS: { ar: "لم يُختر أي حساب إعلاني في تيك توك، أو لا يوجد حساب مربوط.", en: "No TikTok ad account was authorised, or none is connected." },
 };

@@ -16,4 +16,10 @@ export const env = {
   databaseUrl: () => required("DATABASE_URL"),
   anthropicConfigured: () => Boolean(process.env.ANTHROPIC_API_KEY),
   demoMode: () => process.env.GLIO_DEMO_MODE === "1",
+  /** TikTok Marketing API app (developer portal). The secret is SERVER ONLY. */
+  tiktokAppId: () => required("TIKTOK_APP_ID"),
+  tiktokAppSecret: () => required("TIKTOK_APP_SECRET"),
+  tiktokConfigured: () => Boolean(process.env.TIKTOK_APP_ID && process.env.TIKTOK_APP_SECRET),
+  /** Must match the "Advertiser redirect URL" registered with TikTok exactly. */
+  tiktokRedirectUri: () => process.env.TIKTOK_REDIRECT_URI || "https://www.glioagency.org/integrations/tiktok/callback",
 };

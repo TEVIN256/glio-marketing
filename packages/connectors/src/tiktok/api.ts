@@ -21,6 +21,12 @@ export const TIKTOK_API_BASE = "https://business-api.tiktok.com/open_api/v1.3"; 
 export const TIKTOK_AUTH_URL = "https://business-api.tiktok.com/portal/auth"; // TODO(verify)
 export const TIKTOK_TOKEN_PATH = "/oauth2/access_token/"; // TODO(verify)
 export const TIKTOK_REPORT_PATH = "/report/integrated/get/"; // TODO(verify)
+/** Advertisers the access token may use (app_id + secret as query params, token in header). TODO(verify). */
+export const TIKTOK_ADVERTISER_GET_PATH = "/oauth2/advertiser/get/";
+/** Name, currency and timezone of advertisers. TODO(verify): path, max 100 ids per call, field names. */
+export const TIKTOK_ADVERTISER_INFO_PATH = "/advertiser/info/";
+export const TIKTOK_ADVERTISER_INFO_FIELDS = ["advertiser_id", "name", "currency", "timezone", "display_timezone"];
+export const TIKTOK_ADVERTISER_INFO_MAX_IDS = 100;
 
 /** TODO(verify): maximum days per daily report request. */
 export const TIKTOK_MAX_DAYS_PER_REPORT = 30;
@@ -80,4 +86,18 @@ export interface TikTokTokenData {
   access_token: string;
   advertiser_ids?: string[];
   scope?: unknown;
+}
+
+export interface TikTokAdvertiserListData {
+  list: Array<{ advertiser_id: string | number; advertiser_name?: string | null }>;
+}
+
+export interface TikTokAdvertiserInfoData {
+  list: Array<{
+    advertiser_id: string | number;
+    name?: string | null;
+    currency?: string | null;
+    timezone?: string | null;
+    display_timezone?: string | null;
+  }>;
 }

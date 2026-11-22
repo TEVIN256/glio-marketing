@@ -3,9 +3,19 @@ import {
   PlatformError, type ReportingConnector, type ReportPage,
 } from "../types.ts";
 import {
+  TIKTOK_ADVERTISER_GET_PATH, TIKTOK_ADVERTISER_INFO_FIELDS, TIKTOK_ADVERTISER_INFO_MAX_IDS, TIKTOK_ADVERTISER_INFO_PATH,
   TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_REPORT_PATH, TIKTOK_TOKEN_PATH,
-  accountTotalsParams, campaignDailyReportParams, type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
+  accountTotalsParams, campaignDailyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
+  type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.ts";
+
+/** An ad account the advertiser authorised, as Glio stores it. */
+export interface TikTokAdvertiser {
+  externalId: string;
+  name: string | null;
+  currency: string | null; // ISO 4217, or null if TikTok didn't give a valid one
+  timezone: string | null; // IANA name when available
+}
 
 export interface TikTokConnectorOptions {
   fetch?: FetchLike;
@@ -54,6 +64,41 @@ export class TikTokConnector implements ReportingConnector {
       throw new PlatformError("TikTok token response had no access token", "tiktok", "missing_token", false);
     }
     return { accessToken: body.data.access_token, advertiserIds: body.data.advertiser_ids ?? [] };
+  }
+
+  /**
+   * The advertisers this token may use, with name, currency and timezone.
+   * The app secret goes only to TikTok and is redacted from any error text.
+   */
+  async listAdvertisers(args: { appId: string; appSecret: string; accessToken: string }): Promise<TikTokAdvertiser[]> {
+    const secrets = [args.appSecret, args.accessToken];
+    const listed = await this.get<TikTokAdvertiserListData>(
+      TIKTOK_ADVERTISER_GET_PATH, { app_id: args.appId, secret: args.appSecret }, args.accessToken, secrets,
+    );
+    if (!Array.isArray(listed.list)) {
+      throw new PlatformError("TikTok advertiser list is missing data.list", "tiktok", "bad_shape", false);
+    }
+    const byId = new Map<string, TikTokAdvertiser>();
+    for (const a of listed.list) {
+      const id = advertiserId(a.advertiser_id);
+      if (!id) continue;
+      byId.set(id, { externalId: id, name: textOrNull(a.advertiser_name), currency: null, timezone: null });
+    }
+    const ids = [...byId.keys()];
+    for (let i = 0; i < ids.length; i += TIKTOK_ADVERTISER_INFO_MAX_IDS) {
+      const chunk = ids.slice(i, i + TIKTOK_ADVERTISER_INFO_MAX_IDS);
+      const info = await this.get<TikTokAdvertiserInfoData>(
+        TIKTOK_ADVERTISER_INFO_PATH, { advertiser_ids: chunk, fields: TIKTOK_ADVERTISER_INFO_FIELDS }, args.accessToken, secrets,
+      );
+      for (const row of info.list ?? []) {
+        const known = byId.get(advertiserId(row.advertiser_id));
+        if (!known) continue;
+        known.name = textOrNull(row.name) ?? known.name;
+        known.currency = currencyOrNull(row.currency);
+        known.timezone = timezoneOrNull(row.display_timezone) ?? timezoneOrNull(row.timezone);
+      }
+    }
+    return [...byId.values()];
   }
 
   async fetchDailyReportPage(req: DailyReportRequest): Promise<ReportPage> {
@@ -107,6 +152,18 @@ export class TikTokConnector implements ReportingConnector {
     return { body, data };
   }
 
+  /** GET a TikTok endpoint; array parameters are JSON-encoded. Returns `data`. */
+  private async get<T>(path: string, params: Record<string, unknown>, accessToken: string, secrets: string[]): Promise<T> {
+    const url = new URL(this.apiBase + path);
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, typeof value === "string" ? value : JSON.stringify(value));
+    }
+    const res = await this.fetch(url.toString(), { method: "GET", headers: { "Access-Token": accessToken } });
+    const body = await this.readEnvelope<T>(res, path, secrets);
+    if (!body.data) throw new PlatformError(`TikTok ${path} response has no data`, "tiktok", "bad_shape", false);
+    return body.data;
+  }
+
   private async readEnvelope<T>(
     res: { status: number; json(): Promise<unknown> },
     path: string,
@@ -156,6 +213,31 @@ function toRow(item: TikTokReportData["list"][number]): DailyMetricRow {
 function withoutRequestId(body: TikTokEnvelope<unknown>): unknown {
   const { request_id: _ignored, ...rest } = body;
   return rest;
+}
+
+/**
+ * Advertiser IDs are long (19 digits). A JSON number that large has already lost
+ * precision when parsed, and would silently point at the wrong account: refuse it.
+ */
+function advertiserId(v: unknown): string {
+  if (typeof v === "number" && !Number.isSafeInteger(v)) {
+    throw new PlatformError("TikTok returned an advertiser ID as an imprecise number", "tiktok", "bad_shape", false);
+  }
+  return String(v ?? "").trim();
+}
+
+function textOrNull(v: unknown): string | null {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t ? t.slice(0, 200) : null;
+}
+
+function currencyOrNull(v: unknown): string | null {
+  return typeof v === "string" && /^[A-Z]{3}$/.test(v.trim()) ? v.trim() : null;
+}
+
+/** Accept IANA names like "Asia/Riyadh" (and "Etc/GMT-3"); anything else is unknown. */
+function timezoneOrNull(v: unknown): string | null {
+  return typeof v === "string" && /^[A-Za-z_]+\/[A-Za-z0-9_+\-/]+$/.test(v.trim()) ? v.trim() : null;
 }
 
 function decimalOrNull(v: unknown): string | null {

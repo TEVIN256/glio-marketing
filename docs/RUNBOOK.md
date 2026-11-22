@@ -79,6 +79,7 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - Vercel variables: `RESEND_API_KEY` (**Secret**), `CRON_SECRET` (**Secret**, long random letters and digits). Optional: `REPORTS_FROM`, `REPORTS_REPLY_TO`, `APP_URL`.
 - Daily job: `apps/web/vercel.json` → `/api/cron/reports` at 05:00 UTC (08:00 Riyadh). Check runs under Vercel → project → Settings → Cron Jobs, and the logs for `scheduled_reports` events.
 - Per client: client page → "Email reports" (recipients, frequency, weekday, language) and "Email the chosen period's report now". The last 5 deliveries are listed there; all of them are in `report_deliveries`.
+- **First report email: 2026-11-22**, manual send (synthetic demo data), from reports@glioagency.org, delivered to a Gmail inbox (not spam). `RESEND_API_KEY` is a send-only key restricted to glioagency.org ("GLIO production" in Resend). Resend's "Forge" upgrade banner was left alone; check what DNS changes it needs before activating.
 - Error codes: `RESEND_NOT_CONFIGURED`, `RESEND_401` (bad key), `RESEND_403`/`RESEND_422` (domain not verified or bad address), `NO_RECIPIENTS`, `REFRESH_<code>` (TikTok sync failed before a scheduled send; retried the next day).
 
 ## TikTok Marketing API app

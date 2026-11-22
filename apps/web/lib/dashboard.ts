@@ -22,6 +22,7 @@ export interface DailyPoint {
 }
 
 export interface CampaignRow {
+  adAccountId: string;
   platform: string;
   id: string;
   name: string | null;
@@ -95,14 +96,14 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
   const daily = { spend: pick("spend"), impressions: pick("impressions"), clicks: pick("clicks"), conversions: pick("conversions") };
 
   const campaignRows = await db.query(
-    `select platform, entity_id, max(entity_name) as name, currency, count(*)::int as n,
+    `select ad_account_id, platform, entity_id, max(entity_name) as name, currency, count(*)::int as n,
             count(spend_minor)::int as n_spend, sum(spend_minor)::text as spend,
             count(impressions)::int as n_impr, sum(impressions)::text as impressions,
             count(clicks)::int as n_clicks, sum(clicks)::text as clicks,
             count(conversions)::int as n_conv, sum(conversions)::text as conversions
      from public.metric_daily
      where client_id = $1 and level = 'campaign' and date between $2 and $3
-     group by platform, entity_id, currency
+     group by ad_account_id, platform, entity_id, currency
      order by sum(spend_minor) desc nulls last, entity_id
      limit 50`,
     [clientId, period.from, period.to],
@@ -115,6 +116,7 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
     const clicks = full("n_clicks") ? BigInt(r.clicks ?? "0") : null;
     const conv = full("n_conv") ? scaled(r.conversions, "conversions") : null;
     return {
+      adAccountId: r.ad_account_id,
       platform: r.platform,
       id: r.entity_id,
       name: r.name,

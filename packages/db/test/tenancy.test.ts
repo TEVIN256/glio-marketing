@@ -45,6 +45,7 @@ beforeAll(async () => {
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsA, clientA1, alice]);
     for (const cid of [clientA1, clientA2]) {
       await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-a@example.test}')", [wsA, cid]);
+      await q("insert into client_guardrails (workspace_id, client_id, max_daily_budget_minor) values ($1, $2, 50000)", [wsA, cid]);
     }
   });
 
@@ -53,6 +54,7 @@ beforeAll(async () => {
     await q("insert into ad_accounts (workspace_id, client_id, platform, external_id) values ($1, $2, 'tiktok', 'tt-b1')", [wsB, clientB1]);
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsB, clientB1, bob]);
     await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-b@example.test}')", [wsB, clientB1]);
+    await q("insert into client_guardrails (workspace_id, client_id) values ($1, $2)", [wsB, clientB1]);
   });
 
   // Credentials, sync runs, raw payloads and metrics are written by the server only.
@@ -117,7 +119,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(15); // 14 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(16); // 15 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -313,3 +315,48 @@ describe("emailed reports (migration 0006)", () => {
     })).rejects.toThrow(/duplicate key/);
   });
 });
+
+describe("approvals (migration 0007)", () => {
+  const propose = (q: (t: string, p?: unknown[]) => Promise<Record<string, any>[]>, by: string, extra = "") =>
+    q(`insert into approval_requests (workspace_id, client_id, kind, requested_by, ad_account_id, target_type, target_id, payload${extra ? ", " + extra.split("=")[0] : ""})
+       select $1, $2, 'campaign.budget', $3, a.id, 'campaign', 'cmp-1', '{"budget_minor": "20000"}'${extra ? ", " + extra.split("=")[1] : ""}
+       from ad_accounts a where a.client_id = $2 returning id`, [wsA, clientA1, by]);
+
+  it("users propose only as themselves, pending, without execution fields", async () => {
+    const [row] = await db.as(user(alice), (q) => propose(q, alice));
+    expect(row!.id).toBeTruthy();
+    await expect(db.as(user(alice), (q) => propose(q, alice, "before_state='{}'"))).rejects.toThrow(/row-level security/);
+    await expect(db.as(user(carol), (q) => propose(q, carol))).rejects.toThrow(/row-level security/);
+  });
+
+  it("nobody updates requests directly; decisions go through decide_approval (owners/managers, audited)", async () => {
+    const [row] = await db.as(user(alice), (q) => propose(q, alice));
+    await expect(db.as(user(alice), (q) => q("update approval_requests set status = 'executed' where id = $1", [row!.id]))).rejects.toThrow(/permission denied/);
+    await expect(db.as(user(carol), (q) => q("select public.decide_approval($1, true)", [row!.id]))).rejects.toThrow(/only owners and managers/);
+    await expect(db.as(user(bob), (q) => q("select public.decide_approval($1, true)", [row!.id]))).rejects.toThrow(/not found/);
+    const [d] = await db.as(user(alice), (q) => q("select public.decide_approval($1, true, 'ok') as r", [row!.id]));
+    expect(d!.r).toBe("approved");
+    await expect(db.as(user(alice), (q) => q("select public.decide_approval($1, false)", [row!.id]))).rejects.toThrow(/is approved/);
+    const audit = await db.as(superuser, (q) => q("select action from audit_log where entity_id = $1", [String(row!.id)]));
+    expect(audit.map((a) => a.action)).toEqual(["approval.approved"]);
+  });
+
+  it("an expired request can't be approved", async () => {
+    const [row] = await db.as(user(alice), (q) => propose(q, alice, "expires_at=now() - interval '1 hour'"));
+    const [d] = await db.as(user(alice), (q) => q("select public.decide_approval($1, true) as r", [row!.id]));
+    expect(d!.r).toBe("expired");
+  });
+
+  it("budget changes need a positive whole number of minor units", async () => {
+    await expect(db.as(user(alice), (q) => q(
+      `insert into approval_requests (workspace_id, client_id, kind, requested_by, ad_account_id, target_type, target_id, payload)
+       select $1, $2, 'campaign.budget', $3, a.id, 'campaign', 'cmp-1', '{"budget_minor": "-5"}' from ad_accounts a where a.client_id = $2`,
+      [wsA, clientA1, alice]))).rejects.toThrow(/check constraint/);
+  });
+
+  it("guardrails: everyone on the client reads them, only owners change them", async () => {
+    expect(await db.as(user(carol), (q) => q("select max_daily_budget_minor::text as m from client_guardrails"))).toEqual([{ m: "50000" }]);
+    expect(await db.as(user(carol), (q) => q("update client_guardrails set max_budget_increase_pct = 999 returning client_id"))).toEqual([]);
+  });
+});
+

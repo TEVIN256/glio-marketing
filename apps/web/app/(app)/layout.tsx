@@ -14,13 +14,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: auth } = await supabase.auth.getUser();
   let workspaces: SidebarWorkspace[] = [];
   if (auth.user) {
-    const [{ data: ws }, { data: clients }] = await Promise.all([
+    const [{ data: ws }, { data: clients }, { data: pending }] = await Promise.all([
       supabase.from("workspaces").select("id, name").order("created_at"),
       supabase.from("clients").select("id, name, workspace_id").order("name"),
+      supabase.from("approval_requests").select("workspace_id, expires_at").eq("status", "pending"),
     ]);
+    const now = Date.now();
     workspaces = (ws ?? []).map((w) => ({
       id: w.id, name: w.name,
       clients: (clients ?? []).filter((c) => c.workspace_id === w.id).map((c) => ({ id: c.id, name: c.name })),
+      pendingApprovals: (pending ?? []).filter((p) => p.workspace_id === w.id && (!p.expires_at || new Date(p.expires_at).getTime() > now)).length,
     }));
   }
   return (
@@ -31,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         workspaces={workspaces}
         labels={{
           home: t.navHome, workspaces: t.workspaces, clients: t.clients, allClients: t.navAllClients,
-          switchLang: t.switchLang, signOut: t.signOut, website: t.navWebsite,
+          switchLang: t.switchLang, signOut: t.signOut, website: t.navWebsite, approvals: t.navApprovals,
         }}
       />
       <div className="app-main">

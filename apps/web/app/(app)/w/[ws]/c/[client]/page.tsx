@@ -16,6 +16,8 @@ import { ERROR_HINTS } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
 import { connectTikTok, generateReport, loadDemoData, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
+import { saveGuardrails } from "../../approvals/actions";
+import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const KPI_ORDER: MetricId[] = ["spend", "impressions", "clicks", "conversions", "ctr", "cpc", "cpa", "roas"];
@@ -41,7 +43,7 @@ export default async function ClientDashboard({
   const base = `/w/${ws}/c/${client}`;
   const keepRange: Record<string, string> = activePreset ? { p: activePreset } : { from: period.from, to: period.to };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -51,7 +53,13 @@ export default async function ClientDashboard({
     supabase.from("report_schedules").select("frequency, send_weekday, language, recipients").eq("client_id", client).maybeSingle(),
     supabase.from("report_deliveries").select("id, recipient, status, period_from, period_to, created_at, error_code")
       .eq("client_id", client).order("created_at", { ascending: false }).limit(5),
+    supabase.from("approval_requests").select("ad_account_id, target_id, expires_at").eq("client_id", client).eq("status", "pending"),
+    supabase.from("client_guardrails").select("max_daily_budget_minor, max_budget_increase_pct").eq("client_id", client).maybeSingle(),
   ]);
+  const pendingKeys = new Set((pendingRows ?? [])
+    .filter((p) => !p.expires_at || new Date(p.expires_at).getTime() > Date.now())
+    .map((p) => `${p.ad_account_id}:${p.target_id}`));
+  const guardCurrency = overview.currency ?? tiktokRows?.[0]?.currency ?? "SAR";
   const latest = snapshots?.[0];
   const { data: commentary } = latest
     ? await supabase.from("ai_commentary").select("text_ar, text_en, source").eq("id", latest.commentary_id).maybeSingle()
@@ -99,6 +107,16 @@ export default async function ClientDashboard({
         <p className="notice" role="status">{fill(t.tiktokConnected, q.n)} {Number(q.c) > 0 && fill(t.tiktokConflicts, q.c)}</p>
       )}
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
+      {q.ap === "requested" && (
+        <p className="notice" role="status">{t.apResult_requested} <a href={`/w/${ws}/approvals`}>{t.navApprovals}</a></p>
+      )}
+      {q.ap === "guardrails" && <p className="notice" role="status">{t.guardrailsSaved}</p>}
+      {q.e === "budget" && <p className="notice error" role="alert">{t.budgetInvalid}</p>}
+      {q.e === "approval" && (
+        <p className="notice error" role="alert">
+          {t.apError} {q.code && ERROR_HINTS[q.code] ? ERROR_HINTS[q.code]![lang] : null} {q.code && <code className="num">({q.code})</code>}
+        </p>
+      )}
       {q.mail === "saved" && <p className="notice" role="status">{t.emailSaved}</p>}
       {q.mail === "sent" && (
         <p className={Number(q.f) > 0 ? "notice warn" : "notice"} role="status">
@@ -212,7 +230,7 @@ export default async function ClientDashboard({
         <p className="fine-print">{t.liveNote}</p>
       </section>
 
-      <section className="card" aria-labelledby="campaigns-h">
+      <section id="campaigns" className="card" aria-labelledby="campaigns-h">
         <div className="card-head"><h2 id="campaigns-h">{t.campaigns}</h2></div>
         <CampaignTable
           rows={overview.campaigns}
@@ -222,6 +240,13 @@ export default async function ClientDashboard({
             clicks: METRIC_LABELS.clicks[lang], ctr: METRIC_LABELS.ctr[lang], conversions: METRIC_LABELS.conversions[lang],
             cpa: METRIC_LABELS.cpa[lang], none: t.noCampaigns,
           }}
+          propose={access.canGenerate ? {
+            ws, client, pending: pendingKeys,
+            labels: {
+              actions: t.actions, propose: t.proposeShort, pause: t.proposePause, enable: t.proposeEnable, budget: t.proposeBudget,
+              newBudget: t.newDailyBudget, reason: t.reasonPlaceholder, pending: t.pendingBadge,
+            },
+          } : undefined}
         />
       </section>
 
@@ -281,6 +306,38 @@ export default async function ClientDashboard({
           ))}
         </section>
       </div>
+
+      <section id="guardrails" className="card stack" aria-labelledby="guardrails-h">
+        <div className="card-head">
+          <h2 id="guardrails-h">{t.guardrailsTitle}</h2>
+          <span className="muted">{access.role === "owner" ? t.guardrailsSub : t.ownerOnly}</span>
+        </div>
+        {access.role === "owner" ? (
+          <form className="guardrails-form" action={saveGuardrails}>
+            <input type="hidden" name="ws" value={ws} />
+            <input type="hidden" name="client" value={client} />
+            <input type="hidden" name="currency" value={guardCurrency} />
+            <div>
+              <label htmlFor="max_daily_budget">{t.maxDailyBudget} <span className="muted">({guardCurrency})</span></label>
+              <input id="max_daily_budget" name="max_daily_budget" inputMode="decimal" dir="ltr" placeholder={t.noLimit}
+                defaultValue={guardrails?.max_daily_budget_minor ? minorToDecimalForInput(String(guardrails.max_daily_budget_minor), guardCurrency) : ""} />
+            </div>
+            <div>
+              <label htmlFor="max_increase_pct">{t.maxIncrease}</label>
+              <input id="max_increase_pct" name="max_increase_pct" type="number" min={1} max={1000} dir="ltr"
+                defaultValue={guardrails?.max_budget_increase_pct ?? 50} />
+            </div>
+            <button type="submit">{t.save}</button>
+          </form>
+        ) : (
+          <dl className="kv">
+            <dt>{t.maxDailyBudget}</dt>
+            <dd>{guardrails?.max_daily_budget_minor ? <span className="num">{formatMoney(String(guardrails.max_daily_budget_minor), guardCurrency, lang)}</span> : t.noLimit}</dd>
+            <dt>{t.maxIncrease}</dt>
+            <dd><span className="num">{guardrails?.max_budget_increase_pct ?? 50}%</span></dd>
+          </dl>
+        )}
+      </section>
 
       <section id="email" className="card stack" aria-labelledby="email-h">
         <div className="card-head">

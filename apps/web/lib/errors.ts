@@ -32,5 +32,11 @@ export const ERROR_HINTS: Record<string, { ar: string; en: string }> = {
   RESEND_403: { ar: "مفتاح Resend لا يملك صلاحية الإرسال من هذا النطاق.", en: "The Resend key may not send from this domain." },
   RESEND_422: { ar: "رفض Resend الرسالة: تحقق من توثيق النطاق في Resend ومن عناوين المستلمين.", en: "Resend rejected the email: check the domain is verified in Resend and the recipients are valid." },
   NO_RECIPIENTS: { ar: "أضف مستلمًا واحدًا على الأقل واحفظ أولًا.", en: "Add at least one recipient and save first." },
+  GUARDRAIL_MAX_INCREASE: { ar: "الزيادة أكبر من الحد المسموح في التغيير الواحد (حدود الأمان).", en: "The increase is above the per-change limit (safety limits)." },
+  GUARDRAIL_MAX_DAILY_BUDGET: { ar: "الميزانية أعلى من الحد الأقصى اليومي لهذا العميل (حدود الأمان).", en: "The budget is above this client's maximum daily budget (safety limits)." },
+  BUDGET_NOT_DAILY: { ar: "هذه الحملة لا تستخدم ميزانية يومية.", en: "This campaign doesn't use a daily budget." },
+  ACCOUNT_NOT_ACTIVE: { ar: "الحساب الإعلاني غير نشط.", en: "The ad account isn't active." },
+  UNDO_IN_PROGRESS: { ar: "يوجد تراجع قيد التنفيذ لهذا التغيير.", en: "An undo for this change already exists." },
+  "55000": { ar: "تم البتّ في هذا الطلب مسبقًا.", en: "This request was already decided." },
   TIKTOK_NO_ACCOUNTS: { ar: "لم يُختر أي حساب إعلاني في تيك توك، أو لا يوجد حساب مربوط.", en: "No TikTok ad account was authorised, or none is connected." },
 };

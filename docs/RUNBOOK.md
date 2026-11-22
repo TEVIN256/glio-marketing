@@ -182,6 +182,18 @@ select
   (select count(*) from pg_trigger where tgname like 'report_deliveries_no_%')             as log_triggers;   -- expect 3
 ```
 
+### Diagnostic for 20261122000002_approvals
+
+```sql
+select
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'approval_requests'
+     and column_name in ('ad_account_id', 'before_state', 'after_state', 'undo_of', 'expires_at'))      as new_columns,      -- expect 5
+  to_regclass('public.client_guardrails') is not null                                                    as guardrails_table, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                         as policies,         -- expect 34
+  has_function_privilege('authenticated', 'public.decide_approval(uuid, boolean, text)', 'execute')
+    and not has_table_privilege('authenticated', 'public.approval_requests', 'update')                  as decisions_locked; -- expect true
+```
+
 ## Migration log
 
 Supabase org GLIO MARKETING, free plan.

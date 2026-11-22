@@ -27,6 +27,11 @@ export const TIKTOK_ADVERTISER_GET_PATH = "/oauth2/advertiser/get/";
 export const TIKTOK_ADVERTISER_INFO_PATH = "/advertiser/info/";
 export const TIKTOK_ADVERTISER_INFO_FIELDS = ["advertiser_id", "name", "currency", "timezone", "display_timezone"];
 export const TIKTOK_ADVERTISER_INFO_MAX_IDS = 100;
+/** Campaign read and writes (Ads management scope). TODO(verify): paths, field names, enum values. */
+export const TIKTOK_CAMPAIGN_GET_PATH = "/campaign/get/";
+export const TIKTOK_CAMPAIGN_STATUS_PATH = "/campaign/status/update/";
+export const TIKTOK_CAMPAIGN_UPDATE_PATH = "/campaign/update/";
+export const TIKTOK_CAMPAIGN_FIELDS = ["campaign_id", "campaign_name", "operation_status", "budget", "budget_mode"];
 
 /** TODO(verify): maximum days per daily report request. */
 export const TIKTOK_MAX_DAYS_PER_REPORT = 30;
@@ -101,3 +106,14 @@ export interface TikTokAdvertiserInfoData {
     display_timezone?: string | null;
   }>;
 }
+
+export interface TikTokCampaignListData {
+  list: Array<{
+    campaign_id: string | number;
+    campaign_name?: string | null;
+    operation_status?: string | null; // "ENABLE" | "DISABLE" TODO(verify)
+    budget?: string | number | null;
+    budget_mode?: string | null; // e.g. "BUDGET_MODE_DAY", "BUDGET_MODE_INFINITE" TODO(verify)
+  }>;
+}
+

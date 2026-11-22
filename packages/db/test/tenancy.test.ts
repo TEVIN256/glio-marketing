@@ -43,12 +43,16 @@ beforeAll(async () => {
     }
     await q("insert into memberships (workspace_id, user_id, role, client_id) values ($1, $2, 'client_viewer', $3)", [wsA, carol, clientA1]);
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsA, clientA1, alice]);
+    for (const cid of [clientA1, clientA2]) {
+      await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-a@example.test}')", [wsA, cid]);
+    }
   });
 
   await db.as(user(bob), async (q) => {
     clientB1 = (await one(q, "insert into clients (workspace_id, name) values ($1, 'Test Client B1') returning id", [wsB])).id;
     await q("insert into ad_accounts (workspace_id, client_id, platform, external_id) values ($1, $2, 'tiktok', 'tt-b1')", [wsB, clientB1]);
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsB, clientB1, bob]);
+    await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-b@example.test}')", [wsB, clientB1]);
   });
 
   // Credentials, sync runs, raw payloads and metrics are written by the server only.
@@ -79,10 +83,14 @@ beforeAll(async () => {
         `insert into ai_commentary (workspace_id, client_id, input, input_sha256, prompt_version, system_prompt_sha256, source, text_ar, text_en, attempts)
          values ($1, $2, '{}', repeat('b', 64), 'test', repeat('c', 64), 'template', 'نص', 'text', '[]') returning id`,
         [a.workspace_id, a.client_id]);
-      await q(
+      const snap = await one(q,
         `insert into report_snapshots (workspace_id, client_id, date_from, date_to, report, report_sha256, commentary_id, created_by_label)
-         values ($1, $2, '2026-01-01', '2026-01-01', '{}', repeat('d', 64), $3, 'test')`,
+         values ($1, $2, '2026-01-01', '2026-01-01', '{}', repeat('d', 64), $3, 'test') returning id`,
         [a.workspace_id, a.client_id, comm.id]);
+      await q(
+        `insert into report_deliveries (workspace_id, client_id, snapshot_id, period_from, period_to, recipient, trigger, status, provider_message_id)
+         values ($1, $2, $3, '2026-01-01', '2026-01-01', 'reports@example.test', 'schedule', 'sent', 'test-message')`,
+        [a.workspace_id, a.client_id, snap.id]);
     }
   });
 });
@@ -109,7 +117,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(13); // 12 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(15); // 14 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -180,6 +188,8 @@ describe("client_viewer", () => {
       expect((await q("select distinct client_id from reconciliation_latest")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from report_snapshots")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from ai_commentary")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select client_id from report_schedules")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from report_deliveries")).map((r) => r.client_id)).toEqual([clientA1]);
     });
   });
 
@@ -261,5 +271,45 @@ describe("audit log is append-only", () => {
         q("insert into audit_log (workspace_id, actor_kind, actor_user_id, action) values ($1, 'user', $2, 'fake')", [wsB, alice]),
       ),
     ).rejects.toThrow(/row-level security/);
+  });
+});
+
+describe("emailed reports (migration 0006)", () => {
+  it("a client_viewer can read the schedule but not change it; owners can", async () => {
+    await expect(db.as(user(carol), (q) =>
+      q("update report_schedules set recipients = '{x@example.test}' where client_id = $1 returning client_id", [clientA1]),
+    )).resolves.toEqual([]);
+    const [row] = await db.as(user(alice), (q) =>
+      q("update report_schedules set frequency = 'monthly' where client_id = $1 returning frequency", [clientA1]));
+    expect(row!.frequency).toBe("monthly");
+  });
+
+  it("rejects recipients that aren't email addresses, and more than 20", async () => {
+    await expect(db.as(user(alice), (q) =>
+      q("update report_schedules set recipients = '{not-an-email}' where client_id = $1", [clientA1]),
+    )).rejects.toThrow(/check constraint/);
+    const many = Array.from({ length: 21 }, (_, i) => `r${i}@example.test`);
+    await expect(db.as(user(alice), (q) =>
+      q("update report_schedules set recipients = $2 where client_id = $1", [clientA1, many]),
+    )).rejects.toThrow(/check constraint/);
+  });
+
+  it("users cannot write the delivery log; the server cannot change it", async () => {
+    await expect(db.as(user(alice), (q) =>
+      q(`insert into report_deliveries (workspace_id, client_id, period_from, period_to, recipient, trigger, status)
+         values ($1, $2, '2026-01-01', '2026-01-01', 'a@example.test', 'manual', 'failed')`, [wsA, clientA1]),
+    )).rejects.toThrow(/permission denied/);
+    await expect(db.as(service, (q) => q("update report_deliveries set status = 'failed'"))).rejects.toThrow();
+    await expect(db.as(service, (q) => q("delete from report_deliveries"))).rejects.toThrow();
+  });
+
+  it("a scheduled report is logged as sent at most once per client, period and recipient", async () => {
+    await expect(db.as(service, async (q) => {
+      const [d] = await q("select workspace_id, client_id, snapshot_id from report_deliveries where client_id = $1 limit 1", [clientA1]);
+      await q(
+        `insert into report_deliveries (workspace_id, client_id, snapshot_id, period_from, period_to, recipient, trigger, status, provider_message_id)
+         values ($1, $2, $3, '2026-01-01', '2026-01-01', 'reports@example.test', 'schedule', 'sent', 'dup')`,
+        [d!.workspace_id, d!.client_id, d!.snapshot_id]);
+    })).rejects.toThrow(/duplicate key/);
   });
 });

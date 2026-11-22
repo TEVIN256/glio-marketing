@@ -27,5 +27,10 @@ export const ERROR_HINTS: Record<string, { ar: string; en: string }> = {
   "42883": { ar: "خزنة Supabase (Vault) غير مفعّلة في المشروع.", en: "Supabase Vault is not enabled in the project." },
   TIKTOK_CANCELLED: { ar: "لم تتم الموافقة على الربط في تيك توك.", en: "The connection wasn't approved on TikTok." },
   TIKTOK_NOT_CONFIGURED: { ar: "بيانات تطبيق تيك توك (TIKTOK_APP_ID و TIKTOK_APP_SECRET) غير مضبوطة في Vercel.", en: "The TikTok app credentials (TIKTOK_APP_ID, TIKTOK_APP_SECRET) are not set in Vercel." },
+  RESEND_NOT_CONFIGURED: { ar: "مفتاح Resend (RESEND_API_KEY) غير مضبوط في Vercel.", en: "The Resend key (RESEND_API_KEY) is not set in Vercel." },
+  RESEND_401: { ar: "مفتاح Resend غير صحيح.", en: "The Resend API key is invalid." },
+  RESEND_403: { ar: "مفتاح Resend لا يملك صلاحية الإرسال من هذا النطاق.", en: "The Resend key may not send from this domain." },
+  RESEND_422: { ar: "رفض Resend الرسالة: تحقق من توثيق النطاق في Resend ومن عناوين المستلمين.", en: "Resend rejected the email: check the domain is verified in Resend and the recipients are valid." },
+  NO_RECIPIENTS: { ar: "أضف مستلمًا واحدًا على الأقل واحفظ أولًا.", en: "Add at least one recipient and save first." },
   TIKTOK_NO_ACCOUNTS: { ar: "لم يُختر أي حساب إعلاني في تيك توك، أو لا يوجد حساب مربوط.", en: "No TikTok ad account was authorised, or none is connected." },
 };

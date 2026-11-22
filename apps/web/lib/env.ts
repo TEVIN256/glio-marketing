@@ -22,4 +22,12 @@ export const env = {
   tiktokConfigured: () => Boolean(process.env.TIKTOK_APP_ID && process.env.TIKTOK_APP_SECRET),
   /** Must match the "Advertiser redirect URL" registered with TikTok exactly. */
   tiktokRedirectUri: () => process.env.TIKTOK_REDIRECT_URI || "https://www.glioagency.org/integrations/tiktok/callback",
+  /** Report emails (Resend). The key is SERVER ONLY. */
+  resendApiKey: () => process.env.RESEND_API_KEY ?? "",
+  emailConfigured: () => Boolean(process.env.RESEND_API_KEY),
+  reportsFrom: () => process.env.REPORTS_FROM || "GLIO Reports <reports@glioagency.org>",
+  reportsReplyTo: () => process.env.REPORTS_REPLY_TO || "info@glioagency.org",
+  appUrl: () => (process.env.APP_URL || "https://www.glioagency.org").replace(/\/$/, ""),
+  /** Vercel sends it as "Authorization: Bearer <CRON_SECRET>" to cron routes. SERVER ONLY. */
+  cronSecret: () => process.env.CRON_SECRET ?? "",
 };

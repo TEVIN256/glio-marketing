@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Policy } from "@/components/Policy";
 import { SiteFooter } from "@/components/SiteFooter";
 import { COMPANY, fill, site } from "@/lib/site";
+import { cronAuthorized } from "@/lib/cron-auth";
 import { isPublicPath } from "../proxy";
 
 /** Same keys, same number of sections/bullets/paragraphs in both languages, nothing empty. */
@@ -77,7 +78,18 @@ describe("brand only, email only", () => {
 
 describe("public paths", () => {
   it("the website and sign-in pages are public; the app is not", () => {
-    for (const p of ["/", "/privacy", "/terms", "/login", "/auth/callback"]) expect(isPublicPath(p), p).toBe(true);
+    for (const p of ["/", "/privacy", "/terms", "/login", "/auth/callback", "/api/cron/reports"]) expect(isPublicPath(p), p).toBe(true);
     for (const p of ["/app", "/w/123", "/diagnostics", "/privacyx", "/terms-admin"]) expect(isPublicPath(p), p).toBe(false);
   });
 });
+
+describe("cron authorization", () => {
+  it("accepts only the exact bearer secret, and nothing when no secret is configured", () => {
+    expect(cronAuthorized("Bearer s3cret-value", "s3cret-value")).toBe(true);
+    expect(cronAuthorized("Bearer wrong", "s3cret-value")).toBe(false);
+    expect(cronAuthorized("s3cret-value", "s3cret-value")).toBe(false);
+    expect(cronAuthorized(null, "s3cret-value")).toBe(false);
+    expect(cronAuthorized("Bearer ", "")).toBe(false);
+  });
+});
+

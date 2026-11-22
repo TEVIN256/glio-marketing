@@ -73,6 +73,14 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - **Website (live since 2026-11-21):** `www.glioagency.org` is the main address, served by the Vercel project `glio-marketing`; `glioagency.org` redirects there (308). Cloudflare records: CNAME `@` and CNAME `www` → the `…vercel-dns-017.com` value shown in Vercel → Settings → Domains (DNS only). The Shopify A/AAAA/www records were removed; the old Shopify store and its theme repository are untouched. **Still to do:** Supabase Auth → Site URL `https://www.glioagency.org`, add redirect URL `https://www.glioagency.org/auth/callback` (keep the vercel.app ones).
 - **DMARC:** TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:…@dmarc-reports.cloudflare.net` (Cloudflare DMARC Management, monitor only). After a few weeks of reports showing only Google Workspace and Resend, move to `p=quarantine`.
 
+## Report emails (M6)
+
+- Sender: Resend, from `GLIO Reports <reports@glioagency.org>`, replies to info@glioagency.org. The glioagency.org domain must show **Verified** in Resend (its DKIM `resend._domainkey` and `send` records are already in Cloudflare).
+- Vercel variables: `RESEND_API_KEY` (**Secret**), `CRON_SECRET` (**Secret**, long random letters and digits). Optional: `REPORTS_FROM`, `REPORTS_REPLY_TO`, `APP_URL`.
+- Daily job: `apps/web/vercel.json` → `/api/cron/reports` at 05:00 UTC (08:00 Riyadh). Check runs under Vercel → project → Settings → Cron Jobs, and the logs for `scheduled_reports` events.
+- Per client: client page → "Email reports" (recipients, frequency, weekday, language) and "Email the chosen period's report now". The last 5 deliveries are listed there; all of them are in `report_deliveries`.
+- Error codes: `RESEND_NOT_CONFIGURED`, `RESEND_401` (bad key), `RESEND_403`/`RESEND_422` (domain not verified or bad address), `NO_RECIPIENTS`, `REFRESH_<code>` (TikTok sync failed before a scheduled send; retried the next day).
+
 ## TikTok Marketing API app
 
 - Developer account on the TikTok for Business developer portal (business-api.tiktok.com/portal), signed in with info@glioagency.org. Developer registration submitted 2026-11-22 (company: the legal name on the CR, website https://www.glioagency.org, location Saudi Arabia, region EMEA, services: Campaign Management, Reporting, Ad Measurement, Accounts).
@@ -159,6 +167,18 @@ select
   (select count(*) from pg_policies where schemaname = 'public')                            as policies,         -- expect 26
   (select count(*) from pg_trigger
      where tgname like 'ai_commentary_no_%' or tgname like 'report_snapshots_no_%')        as record_triggers;  -- expect 6
+```
+
+### Diagnostic for 20261122000001_report_emails
+
+```sql
+select
+  to_regclass('public.report_schedules') is not null
+    and to_regclass('public.report_deliveries') is not null                                  as m6_tables,      -- expect true
+  (select bool_and(rowsecurity) from pg_tables where schemaname = 'public'
+     and tablename in ('report_schedules', 'report_deliveries'))                            as m6_rls_on,      -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                            as policies,       -- expect 31
+  (select count(*) from pg_trigger where tgname like 'report_deliveries_no_%')             as log_triggers;   -- expect 3
 ```
 
 ## Migration log

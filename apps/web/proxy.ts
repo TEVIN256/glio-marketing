@@ -6,7 +6,8 @@ import { type NextRequest, NextResponse } from "next/server";
  * signed-out visitors to /login, except on the public website pages. Pages still check the user themselves
  * (requireUser); this is not the security boundary, RLS is.
  */
-const PUBLIC_PREFIXES = ["/login", "/auth/callback", "/privacy", "/terms"];
+// /api/cron: no user session; each cron route checks CRON_SECRET itself.
+const PUBLIC_PREFIXES = ["/login", "/auth/callback", "/privacy", "/terms", "/api/cron"];
 
 /** The company website (home, privacy, terms) and the sign-in pages are public. */
 export function isPublicPath(pathname: string): boolean {

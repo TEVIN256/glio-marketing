@@ -34,8 +34,8 @@ export function ReportView({ report, commentary, lang, t, figureHref }: ReportVi
   const recon = (scope: string) => report.channels.find((c) => c.scope === scope)?.reconciliation;
 
   return (
-    <div className="stack">
-      <section className="card stack" aria-labelledby="summary-h">
+    <div className="page">
+      <section className="card stack summary-card" aria-labelledby="summary-h">
         <h2 id="summary-h" style={{ marginBlockStart: 0 }}>{t.summary}</h2>
         <p className="commentary" lang={lang}>{isolateNumbers(lang === "ar" ? commentary.ar : commentary.en)}</p>
         <p className="muted">{commentary.source === "llm" ? t.summaryByAi : t.summaryByTemplate}</p>
@@ -71,6 +71,7 @@ export function ReportView({ report, commentary, lang, t, figureHref }: ReportVi
                   <a key={f.id} className="figure" href={figureHref(f.id)} data-figure={f.id} aria-label={`${label}: ${f.display[lang]}. ${t.viewSource}`}>
                     <div className="figure-label">{label}</div>
                     <div className="figure-value"><span className="num">{f.display[lang]}</span></div>
+                    <div className="figure-source">{t.viewSource}</div>
                   </a>
                 );
               })}

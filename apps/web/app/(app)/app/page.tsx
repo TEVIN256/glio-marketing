@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDict } from "@/lib/i18n";
 import { requireUser } from "@/lib/supabase/server";
-import { signOut } from "@/app/actions";
+import { PageHeader } from "@/components/app/PageHeader";
 
 async function createWorkspace(formData: FormData) {
   "use server";
@@ -17,49 +17,41 @@ async function createWorkspace(formData: FormData) {
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const { t } = await getDict();
-  const { supabase, user } = await requireUser();
+  const { supabase } = await requireUser();
   const q = await searchParams;
-  const { data: workspaces } = await supabase.from("workspaces").select("id, name, kind, created_at").order("created_at");
+  const [{ data: workspaces }, { data: clients }] = await Promise.all([
+    supabase.from("workspaces").select("id, name, kind, created_at").order("created_at"),
+    supabase.from("clients").select("id, workspace_id"),
+  ]);
 
   return (
-    <div className="stack">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1>{t.workspaces}</h1>
-        <form action={signOut}>
-          <span className="muted" dir="ltr">{user.email}</span>{" "}
-          <button className="secondary" type="submit">{t.signOut}</button>
+    <div className="page">
+      <PageHeader title={t.welcome} subtitle={t.workspacesSub} />
+      {q.e && <p className="notice error" role="alert">{q.e === "tiktok_state" ? t.tiktokStateError : t.createError}</p>}
+
+      <div className="tile-grid">
+        {(workspaces ?? []).map((w) => (
+          <a key={w.id} className="tile" href={`/w/${w.id}`}>
+            <span className="tile-avatar" aria-hidden="true">{w.name.trim().charAt(0).toUpperCase()}</span>
+            <span className="tile-title">{w.name}</span>
+            <span className={`badge ${w.kind === "agency" ? "ok" : "other"}`}>{w.kind === "agency" ? t.kindAgency : t.kindBusiness}</span>
+            <span className="tile-meta">{t.clientsCount.replace("{n}", String((clients ?? []).filter((c) => c.workspace_id === w.id).length))}</span>
+            <span className="tile-cta">{t.openDashboard} <span aria-hidden="true" className="flip">→</span></span>
+          </a>
+        ))}
+
+        <form className="tile tile-form" action={createWorkspace}>
+          <span className="tile-avatar add" aria-hidden="true">+</span>
+          <label htmlFor="ws-name" className="tile-title">{t.createWorkspace}</label>
+          <input id="ws-name" name="name" required maxLength={200} placeholder={t.workspaceName} />
+          <fieldset className="choice">
+            <legend className="sr-only">{t.workspaceKind}</legend>
+            <label><input type="radio" name="kind" value="business" defaultChecked /> {t.kindBusiness}</label>
+            <label><input type="radio" name="kind" value="agency" /> {t.kindAgency}</label>
+          </fieldset>
+          <button type="submit">{t.create}</button>
         </form>
       </div>
-
-      {workspaces && workspaces.length > 0 && (
-        <ul className="list card">
-          {workspaces.map((w) => (
-            <li key={w.id}>
-              <a href={`/w/${w.id}`}>{w.name}</a>{" "}
-              <span className="muted">· {w.kind === "agency" ? t.kindAgency : t.kindBusiness}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h2>{t.createWorkspace}</h2>
-      {q.e && <p className="notice error" role="alert">{q.e === "tiktok_state" ? t.tiktokStateError : t.createError}</p>}
-      <form className="card stack" action={createWorkspace}>
-        <div>
-          <label htmlFor="ws-name">{t.workspaceName}</label>
-          <input id="ws-name" name="name" required maxLength={200} />
-        </div>
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend style={{ fontWeight: 600 }}>{t.workspaceKind}</legend>
-          <label style={{ fontWeight: 400 }}>
-            <input type="radio" name="kind" value="business" defaultChecked style={{ minWidth: 0 }} /> {t.kindBusiness}
-          </label>
-          <label style={{ fontWeight: 400 }}>
-            <input type="radio" name="kind" value="agency" style={{ minWidth: 0 }} /> {t.kindAgency}
-          </label>
-        </fieldset>
-        <button type="submit">{t.create}</button>
-      </form>
     </div>
   );
 }

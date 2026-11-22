@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+import { DEMO_EXTERNAL_ID } from "@glio/connectors";
+import { PageHeader } from "@/components/app/PageHeader";
 import { getDict } from "@/lib/i18n";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -24,40 +26,52 @@ export default async function WorkspacePage({
 
   const { data: workspace } = await supabase.from("workspaces").select("id, name, kind").eq("id", ws).maybeSingle();
   if (!workspace) notFound();
-  const { data: clients } = await supabase.from("clients").select("id, name").eq("workspace_id", ws).order("created_at");
+  const [{ data: clients }, { data: accounts }, { data: snapshots }] = await Promise.all([
+    supabase.from("clients").select("id, name").eq("workspace_id", ws).order("created_at"),
+    supabase.from("ad_accounts").select("client_id, external_id, status").eq("workspace_id", ws).eq("platform", "tiktok"),
+    supabase.from("report_snapshots").select("client_id, date_from, date_to, created_at").eq("workspace_id", ws).order("created_at", { ascending: false }).limit(200),
+  ]);
 
   // A business has exactly one client (itself): go straight to its dashboard.
   if (workspace.kind === "business" && clients?.length === 1) redirect(`/w/${ws}/c/${clients[0]!.id}`);
 
   return (
-    <div className="stack">
-      <p><a href="/app">← {t.workspaces}</a></p>
-      <h1>{workspace.name}</h1>
-      <h2>{t.clients}</h2>
-      {clients && clients.length > 0 ? (
-        <ul className="list card">
-          {clients.map((c) => (
-            <li key={c.id}><a href={`/w/${ws}/c/${c.id}`}>{c.name}</a></li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted">{t.noClients}</p>
-      )}
+    <div className="page">
+      <PageHeader
+        crumbs={[{ href: "/app", label: t.workspaces }]}
+        title={workspace.name}
+        subtitle={t.clientsSub}
+      />
+      {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
 
-      {workspace.kind === "agency" && (
-        <>
-          <h2>{t.addClient}</h2>
-          {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
-          <form className="card row" action={addClient}>
+      <div className="tile-grid">
+        {(clients ?? []).map((c) => {
+          const n = (accounts ?? []).filter((a) => a.client_id === c.id && a.external_id !== DEMO_EXTERNAL_ID).length;
+          const last = (snapshots ?? []).find((s) => s.client_id === c.id);
+          return (
+            <a key={c.id} className="tile" href={`/w/${ws}/c/${c.id}`}>
+              <span className="tile-avatar" aria-hidden="true">{c.name.trim().charAt(0).toUpperCase()}</span>
+              <span className="tile-title">{c.name}</span>
+              <span className="tile-meta">{t.accountsCount.replace("{n}", String(n))}</span>
+              <span className="tile-meta">
+                {t.lastReport}: {last ? <span className="num">{last.date_from} → {last.date_to}</span> : t.noReportYet}
+              </span>
+              <span className="tile-cta">{t.openDashboard} <span aria-hidden="true" className="flip">→</span></span>
+            </a>
+          );
+        })}
+
+        {workspace.kind === "agency" && (
+          <form className="tile tile-form" action={addClient}>
             <input type="hidden" name="ws" value={ws} />
-            <div>
-              <label htmlFor="client-name">{t.clientName}</label>
-              <input id="client-name" name="name" required maxLength={200} />
-            </div>
+            <span className="tile-avatar add" aria-hidden="true">+</span>
+            <label htmlFor="client-name" className="tile-title">{t.addClient}</label>
+            <input id="client-name" name="name" required maxLength={200} placeholder={t.clientName} />
             <button type="submit">{t.add}</button>
           </form>
-        </>
-      )}
+        )}
+      </div>
+      {(!clients || clients.length === 0) && workspace.kind !== "agency" && <p className="muted">{t.noClients}</p>}
     </div>
   );
 }

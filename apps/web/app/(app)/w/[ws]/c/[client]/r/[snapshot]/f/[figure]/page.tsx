@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { METRIC_LABELS, type ReportModel, SCOPE_LABELS } from "@glio/reports";
+import { PageHeader } from "@/components/app/PageHeader";
 import { getDict } from "@/lib/i18n";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -29,13 +30,16 @@ export default async function FigurePage({
 
   const label = `${SCOPE_LABELS[f.scope]?.[lang] ?? f.scope}: ${METRIC_LABELS[f.metric][lang]}`;
   return (
-    <div className="stack">
-      <p><a href={`/w/${ws}/c/${client}/r/${snapshot}`}>← {t.back}</a></p>
-      <h1>{t.figureDetail}: {label}</h1>
+    <div className="page">
+      <PageHeader
+        crumbs={[{ href: `/w/${ws}/c/${client}`, label: t.dashboard }, { href: `/w/${ws}/c/${client}/r/${snapshot}`, label: t.reports }]}
+        title={<>{t.figureDetail}: {label}</>}
+      />
 
-      <section className="card">
+      <section className="card figure-hero">
+        <div className="kpi-value">{f.display ? <span className="num">{f.display[lang]}</span> : f.status === "not_provided" ? t.notProvided : t.notApplicable}</div>
         <dl className="kv">
-          <dt>{t.figures}</dt>
+          <dt>{t.shownAs}</dt>
           <dd>{f.display ? <span className="num">{f.display[lang]}</span> : f.status === "not_provided" ? t.notProvided : t.notApplicable}</dd>
           <dt>{t.exactValue}</dt>
           <dd><code className="num">{JSON.stringify(f.value ?? { status: f.status, reason: f.reason })}</code></dd>
@@ -44,7 +48,7 @@ export default async function FigurePage({
         </dl>
       </section>
 
-      <h2>{t.rawPayloads}</h2>
+      <h2 className="section-title">{t.rawPayloads}</h2>
       {(raws ?? []).map((r) => (
         <section key={r.id} className="card stack">
           <dl className="kv">

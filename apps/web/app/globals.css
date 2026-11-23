@@ -406,3 +406,4 @@ a.figure:hover { border-color: var(--accent); }
   .site-nav { display: none; }
   .hero, .demo { padding: 44px 22px; }
 }
+.empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-block-start: 16px; }

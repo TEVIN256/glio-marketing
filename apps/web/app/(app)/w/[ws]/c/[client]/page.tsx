@@ -40,7 +40,7 @@ export default async function ClientDashboard({
   const custom = ISO.test(q.from ?? "") && ISO.test(q.to ?? "") && q.to! >= q.from! ? { from: q.from!, to: q.to! } : null;
   const period: Period = preset ? presetPeriod(preset, today) : custom ?? presetPeriod("30d", today);
   const activePreset = matchPreset(period, today);
-  const metric: ChartMetric = CHART_METRICS.includes(q.m as ChartMetric) ? (q.m as ChartMetric) : "spend";
+  const requestedMetric: ChartMetric = CHART_METRICS.includes(q.m as ChartMetric) ? (q.m as ChartMetric) : "spend";
   const base = `/w/${ws}/c/${client}`;
   const keepRange: Record<string, string> = activePreset ? { p: activePreset } : { from: period.from, to: period.to };
 
@@ -83,6 +83,10 @@ export default async function ClientDashboard({
   const recon = report.channels.map((c) => c.reconciliation);
   const reconState = recon.includes("drift") ? "drift" : recon.length === 0 ? null : recon.every((r) => r === "ok") ? "ok" : "other";
 
+  // Spend can't be charted across different currencies: then the first other metric is shown.
+  const metricTabs = CHART_METRICS.filter((m) => m !== "spend" || overview.currency);
+  const metric: ChartMetric = metricTabs.includes(requestedMetric) ? requestedMetric : metricTabs[0]!;
+
   // Chart series for the chosen metric. Money is plotted in major units; tooltips show the exact text.
   const digits = overview.currency ? minorUnitDigits(overview.currency) : 0;
   const points = overview.daily[metric].map((p) => ({
@@ -90,7 +94,6 @@ export default async function ClientDashboard({
     value: p.value === null ? null : metric === "spend" ? Number(p.value) / 10 ** digits : Number(p.value),
     label: p.display ? p.display[lang] : null,
   }));
-  const metricTabs = CHART_METRICS.filter((m) => m !== "spend" || overview.currency);
 
   const notices = (
     <>
@@ -176,6 +179,26 @@ export default async function ClientDashboard({
         <section className="empty-state">
           <h2>{t.noDataPeriod}</h2>
           <p className="muted">{t.noDataHint}</p>
+          {access.canManage && (
+            <div className="empty-actions">
+              {env.tiktokConfigured() && (
+                <form action={connectTikTok}>
+                  <input type="hidden" name="ws" value={ws} />
+                  <input type="hidden" name="client" value={client} />
+                  <button type="submit">{t.tiktokConnect}</button>
+                </form>
+              )}
+              {env.demoMode() && (
+                <form action={loadDemoData}>
+                  <input type="hidden" name="ws" value={ws} />
+                  <input type="hidden" name="client" value={client} />
+                  <input type="hidden" name="from" value={period.from} />
+                  <input type="hidden" name="to" value={period.to} />
+                  <button type="submit" className={env.tiktokConfigured() ? "secondary" : undefined}>{t.demoData}</button>
+                </form>
+              )}
+            </div>
+          )}
         </section>
       )}
 
@@ -188,11 +211,12 @@ export default async function ClientDashboard({
             delta={figureDelta(fig(report, m), fig(previousReport, m))}
             lang={lang}
             comparedTo={fill(t.vsPrevious, days)}
-            missingLabel={fig(report, m)?.status === "not_applicable" ? t.notApplicable : t.notProvided}
+            missingLabel={!overview.hasData ? t.noDataDay : fig(report, m)?.status === "not_applicable" ? t.notApplicable : t.notProvided}
           />
         ))}
       </section>
 
+      {overview.hasData && (<>
       <section className="card chart-card" aria-labelledby="trend-h">
         <div className="card-head">
           <h2 id="trend-h">{t.trendTitle}</h2>
@@ -250,6 +274,7 @@ export default async function ClientDashboard({
           } : undefined}
         />
       </section>
+      </>)}
 
       <div className="grid-2">
         <section className="card stack" aria-labelledby="reports-h">

@@ -50,3 +50,36 @@ describe("ApprovalsView", () => {
     expect(html).toContain(dict.en.noPending);
   });
 });
+
+describe("GLIO suggestions in the approvals view", () => {
+  const suggestion: ApprovalListRow = {
+    ...base, id: "00000000-0000-4000-8000-000000000009", requested_by: null, requested_by_agent: "glio-rules/v1",
+    kind: "campaign.budget", target_name: "Demo Campaign D (strong)",
+    payload: { budget_minor: "18000", evidence: {
+      rule: "raise_budget_low_cpa", version: 1, window: { from: "2026-11-10", to: "2026-11-16" }, currency: "SAR",
+      spend_minor: "71234", conversions: "212", cpa_minor: "336", client_cpa_minor: "954", current_budget_minor: "15000", new_budget_minor: "18000",
+    } },
+    reason: "English fallback",
+  };
+
+  it("labels it as a GLIO suggestion and writes the reason from the evidence, in English", () => {
+    const html = render({ rows: [suggestion] }).replace(/<[^>]+>/g, "");
+    expect(html).toContain(dict.en.glioSuggestion);
+    expect(html).toContain("SAR 3.36");
+    expect(html).toContain("SAR 9.54");
+    expect(html).toContain("from SAR 150.00 to SAR 180.00");
+    expect(html).not.toContain("English fallback");
+  });
+
+  it("and in Arabic", () => {
+    const html = render({ rows: [suggestion], lang: "ar", t: dict.ar }).replace(/<[^>]+>/g, "");
+    expect(html).toContain(dict.ar.glioSuggestion);
+    expect(html).toContain("3.36 ر.س");
+    expect(html).toContain("180.00 ر.س");
+  });
+
+  it("owners and managers get the 'check now' button; others don't", () => {
+    expect(render({ rows: [] })).toContain(dict.en.checkSuggestions);
+    expect(render({ rows: [], canDecide: false })).not.toContain(dict.en.checkSuggestions);
+  });
+});

@@ -34,3 +34,29 @@ export function describeState(s: StateLike | null, currency: string | null, lang
   if (s.budgetMinor && currency) parts.push(formatMoney(BigInt(s.budgetMinor), currency, lang, "latn"));
   return parts.join(" · ") || "—";
 }
+
+interface EvidenceLike {
+  rule?: string; window?: { from: string; to: string }; currency?: string; spend_minor?: string; conversions?: string;
+  cpa_minor?: string; client_cpa_minor?: string; current_budget_minor?: string; new_budget_minor?: string; limited_by_guardrail?: boolean;
+}
+
+/**
+ * The reason shown for a request. GLIO suggestions are written here in the
+ * reader's language from the stored evidence (numbers from platform data);
+ * human proposals show the reason the person typed.
+ */
+export function describeReason(r: { reason: string | null; payload: Record<string, unknown> | null }, lang: Lang, t: Dict): string | null {
+  const e = r.payload?.evidence as EvidenceLike | undefined;
+  if (!e?.rule || !e.currency || !e.window || !e.spend_minor) return r.reason;
+  const m = (v?: string) => (v ? formatMoney(BigInt(v), e.currency!, lang, "latn") : "");
+  const vars: Record<string, string> = {
+    from: e.window.from, to: e.window.to, spend: m(e.spend_minor), conv: e.conversions ?? "0",
+    cpa: m(e.cpa_minor), clientCpa: m(e.client_cpa_minor), current: m(e.current_budget_minor), next: m(e.new_budget_minor),
+  };
+  const template = { pause_no_conversions: t.sgPause, cut_budget_high_cpa: t.sgCut, raise_budget_low_cpa: t.sgRaise }[e.rule as "pause_no_conversions"];
+  if (!template) return r.reason;
+  const text = template.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? "");
+  return e.limited_by_guardrail ? `${text} ${t.sgLimited}` : text;
+}
+
+export const isSuggestion = (r: { requested_by_agent: string | null }) => Boolean(r.requested_by_agent?.startsWith("glio-"));

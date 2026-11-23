@@ -77,10 +77,17 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 
 - Sender: Resend, from `GLIO Reports <reports@glioagency.org>`, replies to info@glioagency.org. The glioagency.org domain must show **Verified** in Resend (its DKIM `resend._domainkey` and `send` records are already in Cloudflare).
 - Vercel variables: `RESEND_API_KEY` (**Secret**), `CRON_SECRET` (**Secret**, long random letters and digits). Optional: `REPORTS_FROM`, `REPORTS_REPLY_TO`, `APP_URL`.
-- Daily job: `apps/web/vercel.json` → `/api/cron/reports` at 05:00 UTC (08:00 Riyadh). Check runs under Vercel → project → Settings → Cron Jobs, and the logs for `scheduled_reports` events.
+- Daily job: `apps/web/vercel.json` → `/api/cron/daily` at 05:00 UTC (08:00 Riyadh): refresh connected TikTok accounts (last 7 days), GLIO suggestions, then scheduled report emails (ADR-020). Check runs under Vercel → project → Settings → Cron Jobs, and the logs for `daily_job` events.
 - Per client: client page → "Email reports" (recipients, frequency, weekday, language) and "Email the chosen period's report now". The last 5 deliveries are listed there; all of them are in `report_deliveries`.
 - **First report email: 2026-11-22**, manual send (synthetic demo data), from reports@glioagency.org, delivered to a Gmail inbox (not spam). `RESEND_API_KEY` is a send-only key restricted to glioagency.org ("GLIO production" in Resend). Resend's "Forge" upgrade banner was left alone; check what DNS changes it needs before activating.
 - Error codes: `RESEND_NOT_CONFIGURED`, `RESEND_401` (bad key), `RESEND_403`/`RESEND_422` (domain not verified or bad address), `NO_RECIPIENTS`, `REFRESH_<code>` (TikTok sync failed before a scheduled send; retried the next day).
+
+## GLIO suggestions (rules v1)
+
+- Daily (step 2 of `/api/cron/daily`) and on demand (Approvals → "Check for suggestions now", owners/managers). Proposals only: they appear on the Approvals page as "GLIO suggestion" and run only after an owner/manager approves, through the same executor and safety limits.
+- Rules on the last 7 complete days (Asia/Riyadh): pause a campaign that spent at least SAR 300 with no conversions; lower the daily budget 20% when cost per conversion is at least 1.5x the client's (3+ conversions); raise it 20% (capped by the safety limits) when at most 0.7x (10+ conversions). CPA rules need at least two campaigns with conversions. Defaults in `DEFAULT_RULES` (`packages/sync/src/suggestions.ts`).
+- Not repeated while a request is open for the campaign, or for 7 days after a decision on a suggestion for it. Suggestions expire after 72 hours.
+- Demo data: campaigns C (no conversions), D (strong) and E (expensive) trigger the three rules.
 
 ## TikTok Marketing API app
 

@@ -72,6 +72,33 @@ function defaultWriter(db: SqlExecutor, adAccountId: string) {
   };
 }
 
+/**
+ * The writer and target for one campaign of an ad account: checks the account
+ * is active and has a currency, and reads its token from the secret store
+ * (never for the demo account). Shared by the executor and the suggestion rules.
+ */
+export async function campaignAccess(
+  deps: ExecutorDeps,
+  adAccountId: string,
+  campaignId: string,
+): Promise<{ writer: CampaignWriter; target: CampaignTarget; currency: string }> {
+  const [account] = await deps.db.query(
+    "select id, platform, external_id, currency, status from public.ad_accounts where id = $1",
+    [adAccountId],
+  );
+  if (!account) throw new ApprovalError("ACCOUNT_NOT_FOUND", "Ad account not found");
+  if (account.status !== "active") throw new ApprovalError("ACCOUNT_NOT_ACTIVE", "Ad account is not active");
+  if (!account.currency) throw new ApprovalError("ACCOUNT_NO_CURRENCY", "Ad account has no currency");
+  let accessToken = "";
+  if (account.external_id !== DEMO_EXTERNAL_ID) {
+    const [cred] = await deps.db.query("select secret_ref from public.ad_account_credentials where ad_account_id = $1", [account.id]);
+    if (!cred) throw new ApprovalError("NO_CREDENTIALS", "Ad account has no credentials");
+    accessToken = await deps.secrets.get(cred.secret_ref);
+  }
+  const writer = (deps.writerFor ?? defaultWriter(deps.db, account.id))(account as { platform: string; external_id: string });
+  return { writer, target: { accessToken, advertiserId: account.external_id, campaignId, currency: account.currency }, currency: account.currency };
+}
+
 function applied(before: CampaignState, kind: string, payload: Record<string, unknown>): CampaignState {
   if (kind === "campaign.pause") return { ...before, status: "DISABLE" };
   if (kind === "campaign.enable") return { ...before, status: "ENABLE" };
@@ -100,22 +127,7 @@ export async function executeApproval(
   let before: CampaignState | undefined;
 
   try {
-    const [account] = await deps.db.query(
-      "select id, platform, external_id, currency, status from public.ad_accounts where id = $1",
-      [row.ad_account_id],
-    );
-    if (!account) throw new ApprovalError("ACCOUNT_NOT_FOUND", "Ad account not found");
-    if (account.status !== "active") throw new ApprovalError("ACCOUNT_NOT_ACTIVE", "Ad account is not active");
-    if (!account.currency) throw new ApprovalError("ACCOUNT_NO_CURRENCY", "Ad account has no currency");
-    const demo = account.external_id === DEMO_EXTERNAL_ID;
-    let accessToken = "";
-    if (!demo) {
-      const [cred] = await deps.db.query("select secret_ref from public.ad_account_credentials where ad_account_id = $1", [account.id]);
-      if (!cred) throw new ApprovalError("NO_CREDENTIALS", "Ad account has no credentials");
-      accessToken = await deps.secrets.get(cred.secret_ref);
-    }
-    const writer = (deps.writerFor ?? defaultWriter(deps.db, account.id))(account as { platform: string; external_id: string });
-    const target: CampaignTarget = { accessToken, advertiserId: account.external_id, campaignId: row.target_id, currency: account.currency };
+    const { writer, target } = await campaignAccess(deps, row.ad_account_id, row.target_id);
 
     before = await writer.getCampaign(target);
 

@@ -255,6 +255,9 @@ a.figure:hover { border-color: var(--accent); }
 .tab .count { display: inline-block; min-width: 20px; text-align: center; margin-inline-start: 6px; background: #fff; border-radius: 999px; padding: 0 6px; font-size: 0.75rem; }
 .approval-list { display: grid; gap: 14px; }
 .approval-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 20px; align-items: center; border-inline-start: 4px solid #f59e0b; }
+.badge.suggestion { color: #5b21b6; background: #f1ebff; }
+.badge.suggestion::before { display: none; }
+.approval-card.suggested { border-inline-start-color: #7c3aed; }
 .approval-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 0.88rem; }
 .approval-title { font-size: 1.1rem; margin-block: 8px 6px; }
 .approval-reason { margin: 0 0 6px; }

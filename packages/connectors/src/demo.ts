@@ -6,7 +6,9 @@ import type { FetchLike } from "./types.ts";
  *
  * A fake TikTok HTTP layer that produces deterministic, obviously fake
  * campaigns ("Demo Campaign A/B") for any date range, shaped like the
- * TikTok responses the connector expects. Account totals always equal the
+ * TikTok responses the connector expects. C, D and E have distinct
+ * conversion rates (none / very high / very low) so the suggestion rules have
+ * something to find. Account totals always equal the
  * sum of the daily rows, so reconciliation reports "ok".
  *
  * Only used when GLIO_DEMO_MODE=1. Never mix demo accounts with real ones:
@@ -14,9 +16,13 @@ import type { FetchLike } from "./types.ts";
  */
 
 export const DEMO_EXTERNAL_ID = "demo-advertiser-001";
-const CAMPAIGNS = [
+/** cvr = conversion rate range in percent of clicks (default 2-9). */
+const CAMPAIGNS: Array<{ id: string; name: string; cvr?: [number, number] }> = [
   { id: "demo-campaign-a", name: "Demo Campaign A" },
   { id: "demo-campaign-b", name: "Demo Campaign B" },
+  { id: "demo-campaign-c", name: "Demo Campaign C (no conversions)", cvr: [0, 0] },
+  { id: "demo-campaign-d", name: "Demo Campaign D (strong)", cvr: [15, 25] },
+  { id: "demo-campaign-e", name: "Demo Campaign E (expensive)", cvr: [1, 2] },
 ];
 
 /** Deterministic pseudo-random integer in [min, max] from a seed string. */
@@ -25,10 +31,11 @@ function seeded(seed: string, min: number, max: number): number {
   return min + (n % (max - min + 1));
 }
 
-function demoRow(campaign: { id: string; name: string }, day: string) {
+function demoRow(campaign: (typeof CAMPAIGNS)[number], day: string) {
   const impressions = seeded(`${campaign.id}|${day}|imp`, 2_000, 12_000);
   const clicks = Math.floor(impressions * seeded(`${campaign.id}|${day}|ctr`, 8, 30) / 1000);
-  const conversions = Math.floor(clicks * seeded(`${campaign.id}|${day}|cvr`, 2, 9) / 100);
+  const [cvrMin, cvrMax] = campaign.cvr ?? [2, 9];
+  const conversions = Math.floor(clicks * seeded(`${campaign.id}|${day}|cvr`, cvrMin, cvrMax) / 100);
   const spendHalalas = clicks * seeded(`${campaign.id}|${day}|cpc`, 35, 90);
   return {
     campaign, day, impressions, clicks, conversions,

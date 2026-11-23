@@ -78,7 +78,7 @@ describe("brand only, email only", () => {
 
 describe("public paths", () => {
   it("the website and sign-in pages are public; the app is not", () => {
-    for (const p of ["/", "/privacy", "/terms", "/login", "/auth/callback", "/api/cron/reports"]) expect(isPublicPath(p), p).toBe(true);
+    for (const p of ["/", "/privacy", "/terms", "/login", "/auth/callback", "/api/cron/daily"]) expect(isPublicPath(p), p).toBe(true);
     for (const p of ["/app", "/w/123", "/diagnostics", "/privacyx", "/terms-admin"]) expect(isPublicPath(p), p).toBe(false);
   });
 });

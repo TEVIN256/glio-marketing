@@ -2,8 +2,8 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { MoneyError, decimalToMinor } from "@glio/core";
-import { VaultSecretStore, executeApproval, undoApproval } from "@glio/sync";
+import { MoneyError, addDays, decimalToMinor, todayIn } from "@glio/core";
+import { VaultSecretStore, executeApproval, suggestForClients, undoApproval } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { describeError } from "@/lib/errors";
 import { serverDb } from "@/lib/server-db";
@@ -157,3 +157,36 @@ export async function saveGuardrails(formData: FormData) {
   });
   redirect(`${base}?ap=guardrails#guardrails`);
 }
+
+/**
+ * Run GLIO's suggestion rules now for every client in the workspace
+ * (owners and managers). Uses the stored data; nothing is applied.
+ */
+export async function checkSuggestions(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const page = `/w/${ws}/approvals`;
+  if (!UUID.test(ws)) redirect("/app");
+  const { supabase, user } = await requireUser();
+  const { data: membership } = await supabase.from("memberships").select("role").eq("workspace_id", ws).eq("user_id", user.id).maybeSingle();
+  if (membership?.role !== "owner" && membership?.role !== "manager") redirect(`${page}?e=forbidden`);
+  const { data: clients } = await supabase.from("clients").select("id").eq("workspace_id", ws);
+
+  let outcome = "";
+  try {
+    // Allowed only because the user's owner/manager role in this workspace was just confirmed under RLS.
+    const db = serverDb();
+    const results = await suggestForClients(
+      { db, secrets: new VaultSecretStore(db) },
+      { clientIds: (clients ?? []).map((c) => c.id), yesterday: addDays(todayIn("Asia/Riyadh"), -1) },
+    );
+    const created = results.reduce((n, r) => n + r.created.length, 0);
+    console.info(JSON.stringify({ event: "suggestions_checked", ws, created, errors: results.filter((r) => r.error).length }));
+    outcome = `sg=${created}`;
+  } catch (err) {
+    const d = describeError(err);
+    console.error(JSON.stringify({ event: "suggestions_failed", ws, code: d.code, error: d.message }));
+    outcome = `e=approval&code=${encodeURIComponent(d.code)}`;
+  }
+  redirect(`${page}?${outcome}`);
+}
+

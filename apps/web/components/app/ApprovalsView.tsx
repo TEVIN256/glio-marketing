@@ -1,8 +1,9 @@
-import { describeChange, describeState } from "@/lib/approvals";
+import { describeChange, describeReason, describeState, isSuggestion } from "@/lib/approvals";
+import { isolateNumbers } from "@/components/ReportView";
 import { ERROR_HINTS } from "@/lib/errors";
 import type { Dict, Lang } from "@/lib/i18n";
 import { PageHeader } from "./PageHeader";
-import { decideApproval, undoChange } from "@/app/(app)/w/[ws]/approvals/actions";
+import { checkSuggestions, decideApproval, undoChange } from "@/app/(app)/w/[ws]/approvals/actions";
 
 const UNDO_DAYS = 30;
 const fmtTime = (iso: string) => new Date(iso).toISOString().slice(0, 16).replace("T", " ");
@@ -40,14 +41,24 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
   const pending = (rows ?? []).filter((r) => r.status === "pending" && (!r.expires_at || new Date(r.expires_at).getTime() > now));
   const history = (rows ?? []).filter((r) => !pending.includes(r));
   const who = (r: { requested_by: string | null; requested_by_agent: string | null }) =>
-    r.requested_by_agent ?? (r.requested_by === user.id ? t.requestedByYou : t.requestedByMember);
+    isSuggestion(r) ? "GLIO" : r.requested_by_agent ?? (r.requested_by === user.id ? t.requestedByYou : t.requestedByMember);
   const statusOf = (r: { status: string; expires_at: string | null }) =>
     r.status === "pending" && r.expires_at && new Date(r.expires_at).getTime() <= now ? "expired" : r.status;
   const tone: Record<string, string> = { executed: "ok", undone: "other", rejected: "other", expired: "other", failed: "drift", pending: "drift", approved: "ok", executing: "drift" };
 
   return (
     <div className="page">
-      <PageHeader crumbs={[{ href: "/app", label: t.workspaces }, { href: `/w/${ws}`, label: workspace.name }]} title={t.approvalsTitle} subtitle={t.approvalsSub} />
+      <PageHeader crumbs={[{ href: "/app", label: t.workspaces }, { href: `/w/${ws}`, label: workspace.name }]} title={t.approvalsTitle} subtitle={t.approvalsSub}
+        actions={canDecide && (
+          <form action={checkSuggestions}>
+            <input type="hidden" name="ws" value={ws} />
+            <button type="submit" className="secondary">✦ {t.checkSuggestions}</button>
+          </form>
+        )} />
+      <p className="fine-print">{t.sgExplain}</p>
+      {q.sg !== undefined && (
+        <p className="notice" role="status">{Number(q.sg) > 0 ? t.sgResult.replace("{n}", String(Number(q.sg))) : t.sgNone}</p>
+      )}
 
       {q.ap && tx(`apResult_${q.ap}`) && <p className="notice" role="status">{tx(`apResult_${q.ap}`)}</p>}
       {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
@@ -72,14 +83,17 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
         ) : (
           <div className="approval-list">
             {pending.map((r) => (
-              <article key={r.id} className="card approval-card">
+              <article key={r.id} className={isSuggestion(r) ? "card approval-card suggested" : "card approval-card"}>
                 <div className="approval-main">
                   <div className="approval-meta">
                     <span className="badge drift">{t.apStatus_pending}</span>
+                    {isSuggestion(r) && <span className="badge suggestion">✦ {t.glioSuggestion}</span>}
                     <span className="muted">{clientName(r.client_id)}</span>
                   </div>
                   <h2 className="approval-title">{describeChange(r, currencyOf(r.ad_account_id), lang, t)}</h2>
-                  {r.reason && <p className="approval-reason"><span className="muted">{t.reasonLabel}:</span> {r.reason}</p>}
+                  {describeReason(r, lang, t) && (
+                    <p className="approval-reason"><span className="muted">{t.reasonLabel}:</span> {isolateNumbers(describeReason(r, lang, t)!)}</p>
+                  )}
                   <p className="muted approval-small">
                     {t.requestedBy} {who(r)} · <span className="num">{fmtTime(r.created_at)}</span>
                     {r.expires_at && <> · {t.expiresAt} <span className="num">{fmtTime(r.expires_at)}</span></>}
@@ -131,7 +145,7 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
                       <tr key={r.id}>
                         <th scope="row">
                           <span className="campaign-name">{describeChange(r, cur, lang, t)}</span>
-                          <span className="campaign-id">{clientName(r.client_id)} · {r.undo_of ? t.undoOfEarlier : r.reason ?? ""}</span>
+                          <span className="campaign-id">{clientName(r.client_id)} · {r.undo_of ? t.undoOfEarlier : describeReason(r, lang, t) ?? ""}</span>
                         </th>
                         <td>
                           {r.before_state || r.after_state ? (

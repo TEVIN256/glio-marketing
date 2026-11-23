@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { shortDate } from "@/lib/short-date";
 
 export interface TrendPoint {
   date: string; // YYYY-MM-DD
@@ -18,10 +19,6 @@ export interface TrendChartProps {
   unit?: string;
 }
 
-const MONTHS = {
-  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  ar: ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"],
-};
 const H = 240;
 const PAD = { top: 16, right: 16, bottom: 28, left: 56 };
 
@@ -36,11 +33,6 @@ function compact(v: number): string {
   if (v >= 10_000) return `${+(v / 1000).toFixed(0)}K`;
   if (v >= 1000) return `${+(v / 1000).toFixed(1)}K`;
   return `${+v.toFixed(2)}`;
-}
-export function shortDate(iso: string, lang: "ar" | "en"): string {
-  const m = MONTHS[lang][Number(iso.slice(5, 7)) - 1];
-  const d = Number(iso.slice(8, 10));
-  return lang === "en" ? `${m} ${d}` : `${d} ${m}`;
 }
 
 /**

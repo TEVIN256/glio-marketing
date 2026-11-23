@@ -45,3 +45,8 @@ grant usage on schema public to anon, authenticated, service_role;
 -- Deliberately NO default privileges: this mirrors a Supabase project with
 -- "Automatically expose new tables" turned off, so every grant Glio relies
 -- on must be written explicitly in a migration.
+
+-- The production server connects as `postgres` (DATABASE_URL), which can read
+-- auth.users (e.g. owners' emails for approval notifications). Tests run the
+-- server as service_role, so give it the same read access here.
+grant select on auth.users to service_role;

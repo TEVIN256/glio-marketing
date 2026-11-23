@@ -122,3 +122,12 @@ describe("undo only on the latest change per campaign", () => {
   });
 });
 
+describe("notification setting", () => {
+  it("owners and managers see their own on/off switch, reflecting the saved value", () => {
+    expect(render({ rows: [] })).toContain(dict.en.notifyToggle);
+    expect(render({ rows: [], notifyOn: true })).toMatch(/name="approvals_email" checked=""/);
+    expect(render({ rows: [], notifyOn: false })).not.toMatch(/name="approvals_email" checked=""/);
+    expect(render({ rows: [], canDecide: false })).not.toContain(dict.en.notifyToggle);
+  });
+});
+

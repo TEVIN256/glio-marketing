@@ -6,6 +6,7 @@ import { MoneyError, addDays, decimalToMinor, todayIn } from "@glio/core";
 import { VaultSecretStore, executeApproval, suggestForClients, undoApproval } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { describeError } from "@/lib/errors";
+import { notifyApprovals } from "@/lib/notify-run";
 import { serverDb } from "@/lib/server-db";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -68,6 +69,7 @@ export async function proposeChange(formData: FormData) {
     workspace_id: ws, actor_kind: "user", actor_user_id: access.user.id, action: "approval.requested",
     entity_type: "approval_request", entity_id: data.id, metadata: { kind, target_id: campaignId, client_id: client },
   });
+  await notifyApprovals({ workspaceId: ws, excludeUserId: access.user.id });
   redirect(`${base}?ap=requested#campaigns`);
 }
 
@@ -183,6 +185,7 @@ export async function checkSuggestions(formData: FormData) {
     console.info(JSON.stringify({ event: "suggestions_checked", ws, created, errors: results.filter((r) => r.error).length }));
     // Why campaigns were not suggested (shown under the result), capped to keep the URL short.
     const skipped = results.flatMap((r) => r.skipped).slice(0, 12).map((k) => [String(k.name ?? k.campaignId).slice(0, 80), k.reason]);
+    if (created > 0) await notifyApprovals({ workspaceId: ws, excludeUserId: user.id });
     outcome = `sg=${created}` + (skipped.length ? `&sk=${Buffer.from(JSON.stringify(skipped)).toString("base64url")}` : "");
   } catch (err) {
     const d = describeError(err);
@@ -190,5 +193,18 @@ export async function checkSuggestions(formData: FormData) {
     outcome = `e=approval&code=${encodeURIComponent(d.code)}`;
   }
   redirect(`${page}?${outcome}`);
+}
+
+/** Turn my own "changes waiting for approval" emails on or off for this workspace. */
+export async function saveNotifySetting(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  if (!UUID.test(ws)) redirect("/app");
+  const on = formData.get("approvals_email") === "on";
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("notification_settings").upsert(
+    { workspace_id: ws, user_id: user.id, approvals_email: on, updated_at: new Date().toISOString() },
+    { onConflict: "workspace_id,user_id" },
+  );
+  redirect(error ? `/w/${ws}/approvals?e=approval&code=${encodeURIComponent(error.code ?? "UNKNOWN")}` : `/w/${ws}/approvals?ns=saved`);
 }
 

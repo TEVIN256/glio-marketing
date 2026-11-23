@@ -4,6 +4,7 @@ import { addDays, todayIn } from "@glio/core";
 import { ClaudeCommentaryModel, ResendMailer, runScheduledReports } from "@glio/reports";
 import { VaultSecretStore, suggestForClients } from "@glio/sync";
 import { cronAuthorized } from "@/lib/cron-auth";
+import { notifyApprovals } from "@/lib/notify-run";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { serverDb } from "@/lib/server-db";
@@ -15,7 +16,8 @@ export const maxDuration = 60;
  * Daily job (vercel.json, 05:00 UTC = 08:00 Riyadh). Only Vercel Cron (with CRON_SECRET) may call it.
  *  1. Refresh the last 7 days of TikTok data for clients with connected (non-demo) accounts.
  *  2. Run GLIO's suggestion rules for every client (proposals only; nothing is applied).
- *  3. Email the scheduled reports that are due.
+ *  3. Email owners/managers about requests waiting for approval (each announced once).
+ *  4. Email the scheduled reports that are due.
  * Each step is isolated: one failing doesn't stop the next.
  */
 export async function GET(request: NextRequest) {
@@ -55,7 +57,10 @@ export async function GET(request: NextRequest) {
     result.suggestions = { error: describeError(err).code };
   }
 
-  // 3. Scheduled report emails
+  // 3. Approval notifications
+  result.notified = (await notifyApprovals()).map((r) => ({ workspace: r.workspaceId, items: r.items, sent: r.sent, failed: r.failed }));
+
+  // 4. Scheduled report emails
   if (env.emailConfigured()) {
     try {
       result.reports = await runScheduledReports(

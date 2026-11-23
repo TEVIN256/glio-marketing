@@ -3,7 +3,7 @@ import { isolateNumbers } from "@/components/ReportView";
 import { ERROR_HINTS } from "@/lib/errors";
 import type { Dict, Lang } from "@/lib/i18n";
 import { PageHeader } from "./PageHeader";
-import { checkSuggestions, decideApproval, undoChange } from "@/app/(app)/w/[ws]/approvals/actions";
+import { checkSuggestions, decideApproval, saveNotifySetting, undoChange } from "@/app/(app)/w/[ws]/approvals/actions";
 
 const UNDO_DAYS = 30;
 const fmtTime = (iso: string) => new Date(iso).toISOString().slice(0, 16).replace("T", " ");
@@ -29,10 +29,12 @@ export interface ApprovalsViewProps {
   lang: Lang;
   t: Dict;
   now?: number;
+  /** My own "email me" setting (owners/managers get these emails). */
+  notifyOn?: boolean;
 }
 
 /** Pending requests to decide, and the history of applied / rejected / failed / undone changes. */
-export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, userId: uid, canDecide, tab, q, lang, t, now = Date.now() }: ApprovalsViewProps) {
+export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, userId: uid, canDecide, tab, q, lang, t, now = Date.now(), notifyOn = true }: ApprovalsViewProps) {
   const tx = (key: string): string | undefined => (t as Record<string, string>)[key];
   const user = { id: uid };
   const workspace = { name: workspaceName };
@@ -63,6 +65,17 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
           </form>
         )} />
       <p className="fine-print">{t.sgExplain}</p>
+      {canDecide && (
+        <form className="notify-toggle" action={saveNotifySetting}>
+          <input type="hidden" name="ws" value={ws} />
+          <label>
+            <input type="checkbox" name="approvals_email" defaultChecked={notifyOn} />
+            {t.notifyToggle}
+          </label>
+          <button type="submit" className="secondary">{t.save}</button>
+        </form>
+      )}
+      {q.ns === "saved" && <p className="notice" role="status">{t.notifySaved}</p>}
       {q.sg !== undefined && (
         <div className="notice" role="status">
           <p style={{ margin: 0 }}>{Number(q.sg) > 0 ? t.sgResult.replace("{n}", String(Number(q.sg))) : t.sgNone}</p>

@@ -20,17 +20,18 @@ export default async function ApprovalsPage({
   const canDecide = membership?.role === "owner" || membership?.role === "manager";
   const tab = q.tab === "history" ? "history" : "pending";
 
-  const [{ data: rows }, { data: clients }, { data: accounts }] = await Promise.all([
+  const [{ data: rows }, { data: clients }, { data: accounts }, { data: notify }] = await Promise.all([
     supabase.from("approval_requests")
       .select("id, client_id, kind, payload, status, requested_by, requested_by_agent, reason, target_name, target_id, ad_account_id, before_state, after_state, created_at, decided_at, decision_note, executed_at, error_code, expires_at, undo_of")
       .eq("workspace_id", ws).order("created_at", { ascending: false }).limit(200),
     supabase.from("clients").select("id, name").eq("workspace_id", ws),
     supabase.from("ad_accounts").select("id, currency").eq("workspace_id", ws),
+    supabase.from("notification_settings").select("approvals_email").eq("workspace_id", ws).eq("user_id", user.id).maybeSingle(),
   ]);
   return (
     <ApprovalsView
       ws={ws} workspaceName={workspace.name} rows={(rows ?? []) as ApprovalListRow[]} clients={clients ?? []} accounts={accounts ?? []}
-      userId={user.id} canDecide={canDecide} tab={tab} q={q} lang={lang} t={t}
+      userId={user.id} canDecide={canDecide} tab={tab} q={q} lang={lang} t={t} notifyOn={notify?.approvals_email ?? true}
     />
   );
 }

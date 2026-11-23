@@ -412,3 +412,7 @@ a.figure:hover { border-color: var(--accent); }
 .empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-block-start: 16px; }
 .skip-list { margin: 0; padding-inline-start: 1.2em; }
 .skip-list li + li { margin-block-start: 2px; }
+.notify-toggle { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.notify-toggle label { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 0; }
+.notify-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+.notify-toggle button { padding: 5px 12px; font-size: 0.85rem; }

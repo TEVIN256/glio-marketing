@@ -7,3 +7,4 @@ export { ClaudeCommentaryModel, DEFAULT_COMMENTARY_MODEL } from "./claude.ts";
 export * from "./email.ts";
 export * from "./mailer.ts";
 export * from "./deliver.ts";
+export * from "./notify.ts";

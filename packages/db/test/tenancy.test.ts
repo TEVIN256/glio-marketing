@@ -47,6 +47,7 @@ beforeAll(async () => {
       await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-a@example.test}')", [wsA, cid]);
       await q("insert into client_guardrails (workspace_id, client_id, max_daily_budget_minor) values ($1, $2, 50000)", [wsA, cid]);
     }
+    await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, true)", [wsA, alice]);
   });
 
   await db.as(user(bob), async (q) => {
@@ -55,6 +56,7 @@ beforeAll(async () => {
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsB, clientB1, bob]);
     await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-b@example.test}')", [wsB, clientB1]);
     await q("insert into client_guardrails (workspace_id, client_id) values ($1, $2)", [wsB, clientB1]);
+    await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, false)", [wsB, bob]);
   });
 
   // Credentials, sync runs, raw payloads and metrics are written by the server only.
@@ -119,7 +121,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(16); // 15 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(17); // 16 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -357,6 +359,25 @@ describe("approvals (migration 0007)", () => {
   it("guardrails: everyone on the client reads them, only owners change them", async () => {
     expect(await db.as(user(carol), (q) => q("select max_daily_budget_minor::text as m from client_guardrails"))).toEqual([{ m: "50000" }]);
     expect(await db.as(user(carol), (q) => q("update client_guardrails set max_budget_increase_pct = 999 returning client_id"))).toEqual([]);
+  });
+});
+
+describe("notifications (migration 0008)", () => {
+  it("each person sees and edits only their own settings", async () => {
+    expect(await db.as(user(carol), (q) => q("select user_id from notification_settings"))).toEqual([]);
+    await expect(db.as(user(carol), (q) => q(
+      "insert into notification_settings (workspace_id, user_id) values ($1, $2)", [wsA, alice]))).rejects.toThrow(/row-level security/);
+    await db.as(user(carol), (q) => q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, false)", [wsA, carol]));
+    expect(await db.as(user(carol), (q) => q("select approvals_email from notification_settings"))).toEqual([{ approvals_email: false }]);
+    await expect(db.as(user(bob), (q) => q(
+      "insert into notification_settings (workspace_id, user_id) values ($1, $2)", [wsA, bob]))).rejects.toThrow(/row-level security/);
+  });
+
+  it("users can't mark a request as already notified", async () => {
+    await expect(db.as(user(alice), (q) => q(
+      `insert into approval_requests (workspace_id, client_id, kind, requested_by, ad_account_id, target_type, target_id, notified_at)
+       select $1, $2, 'campaign.pause', $3, a.id, 'campaign', 'cmp-n', now() from ad_accounts a where a.client_id = $2`,
+      [wsA, clientA1, alice]))).rejects.toThrow(/row-level security/);
   });
 });
 

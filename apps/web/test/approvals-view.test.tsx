@@ -25,14 +25,14 @@ describe("ApprovalsView", () => {
     const html = render({});
     expect(html).toContain("Set the daily budget of “Demo Campaign B” to SAR 120.00");
     expect(html).toContain("CPA too high (synthetic)");
-    expect(html).toContain(dict.en.approveRun);
+    expect(html).toContain(dict.en.approveBudget); // the pending request is a budget change
     expect(html).toContain(dict.en.reject);
     expect(html).not.toContain("Pause campaign"); // executed one is in history, not pending
   });
 
   it("others see that an owner or manager must approve", () => {
     const html = render({ canDecide: false });
-    expect(html).not.toContain(dict.en.approveRun);
+    expect(html).not.toContain(dict.en.approveBudget);
     expect(html).toContain(dict.en.waitingForApprover);
   });
 
@@ -83,3 +83,17 @@ describe("GLIO suggestions in the approvals view", () => {
     expect(render({ rows: [], canDecide: false })).not.toContain(dict.en.checkSuggestions);
   });
 });
+
+describe("approve buttons name the action", () => {
+  it("pause, turn on and budget requests each get their own label", () => {
+    const html = render({ rows: [
+      { ...base, id: "00000000-0000-4000-8000-0000000000a1", kind: "campaign.pause", payload: {} },
+      { ...base, id: "00000000-0000-4000-8000-0000000000a2", kind: "campaign.enable", payload: {} },
+      { ...base, id: "00000000-0000-4000-8000-0000000000a3" },
+    ] });
+    expect(html).toContain(dict.en.approvePause);
+    expect(html).toContain(dict.en.approveEnable);
+    expect(html).toContain(dict.en.approveBudget);
+  });
+});
+

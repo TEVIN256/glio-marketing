@@ -106,7 +106,9 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
                     <label className="sr-only" htmlFor={`note-${r.id}`}>{t.noteLabel}</label>
                     <input id={`note-${r.id}`} name="note" placeholder={t.noteLabel} maxLength={500} />
                     <div className="approval-buttons">
-                      <button type="submit" name="decision" value="approve">{t.approveRun}</button>
+                      <button type="submit" name="decision" value="approve">
+                        {r.kind === "campaign.pause" ? t.approvePause : r.kind === "campaign.enable" ? t.approveEnable : r.kind === "campaign.budget" ? t.approveBudget : t.approveRun}
+                      </button>
                       <button type="submit" name="decision" value="reject" className="secondary">{t.reject}</button>
                     </div>
                   </form>

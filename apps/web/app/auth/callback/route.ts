@@ -17,5 +17,5 @@ export async function GET(request: NextRequest) {
     // already confirmed the email at this point, so the person just needs to sign in.
     console.error(JSON.stringify({ event: "auth_callback_failed", code: error.code ?? null, status: error.status ?? null }));
   }
-  return NextResponse.redirect(new URL("/login?m=confirmed", request.url));
+  return NextResponse.redirect(new URL("/login?m=link", request.url));
 }

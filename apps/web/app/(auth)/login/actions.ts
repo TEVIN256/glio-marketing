@@ -71,3 +71,40 @@ export async function signUp(formData: FormData) {
   }
   redirect("/login?m=check");
 }
+
+/**
+ * Send a password reset link. Always answers the same way, whether or not an
+ * account exists (no way to test which emails are registered). The link comes
+ * back to /auth/callback, which then opens /reset-password (remembered in a cookie).
+ */
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) redirect("/login?mode=forgot&e=email");
+  const origin = (await headers()).get("origin") ?? "";
+  const supabase = await supabaseAsUser();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/auth/callback` });
+  if (error) {
+    console.error(JSON.stringify({ event: "password_reset_request_failed", code: error.code ?? null, status: error.status ?? null }));
+    if (authErrorKey(error.code) === "rate") redirect("/login?mode=forgot&e=rate");
+  }
+  (await cookies()).set(NEXT_COOKIE, "/reset-password", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 3_600 });
+  redirect("/login?mode=forgot&m=reset_sent");
+}
+
+/** Set a new password for the signed-in person (after following the reset link). */
+export async function updatePassword(formData: FormData) {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password.length < 8) redirect("/reset-password?e=weak");
+  if (password !== confirm) redirect("/reset-password?e=mismatch");
+  const supabase = await supabaseAsUser();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) redirect("/login?mode=forgot&e=expired");
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    console.error(JSON.stringify({ event: "password_update_failed", code: error.code ?? null, status: error.status ?? null }));
+    redirect(`/reset-password?e=${error.code === "same_password" ? "same" : authErrorKey(error.code)}`);
+  }
+  redirect("/app?pw=changed");
+}
+

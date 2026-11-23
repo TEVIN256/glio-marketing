@@ -36,6 +36,7 @@ export const ERROR_HINTS: Record<string, { ar: string; en: string }> = {
   GUARDRAIL_MAX_DAILY_BUDGET: { ar: "الميزانية أعلى من الحد الأقصى اليومي لهذا العميل (حدود الأمان).", en: "The budget is above this client's maximum daily budget (safety limits)." },
   BUDGET_NOT_DAILY: { ar: "هذه الحملة لا تستخدم ميزانية يومية.", en: "This campaign doesn't use a daily budget." },
   ACCOUNT_NOT_ACTIVE: { ar: "الحساب الإعلاني غير نشط.", en: "The ad account isn't active." },
+  UNDO_NOT_LATEST: { ar: "يوجد تغيير أحدث على هذه الحملة؛ تراجع عنه أولًا.", en: "A newer change to this campaign is in effect; undo that one first." },
   UNDO_IN_PROGRESS: { ar: "يوجد تراجع قيد التنفيذ لهذا التغيير.", en: "An undo for this change already exists." },
   "55000": { ar: "تم البتّ في هذا الطلب مسبقًا.", en: "This request was already decided." },
   TIKTOK_NO_ACCOUNTS: { ar: "لم يُختر أي حساب إعلاني في تيك توك، أو لا يوجد حساب مربوط.", en: "No TikTok ad account was authorised, or none is connected." },

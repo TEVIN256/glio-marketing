@@ -114,3 +114,11 @@ describe("why campaigns were not suggested", () => {
   });
 });
 
+describe("undo only on the latest change per campaign", () => {
+  it("an older applied change for the same campaign has no Undo", () => {
+    const older: ApprovalListRow = { ...executed, id: "00000000-0000-4000-8000-0000000000b1", executed_at: "2026-11-20T09:00:00Z" };
+    const html = render({ tab: "history", rows: [executed, older] });
+    expect(html.match(new RegExp(`>${dict.en.undo}</button>`, "g"))).toHaveLength(1);
+  });
+});
+

@@ -132,6 +132,20 @@ describe("M7 gate: approval executor", () => {
     await expect(undoApproval(deps(), { approvalId: id, userId: owner })).rejects.toThrow(/Only executed changes/);
   });
 
+  it("only the latest change for a campaign can be undone", async () => {
+    tiktok.state.set("cmp-3", { campaignId: "cmp-3", name: "Test campaign 3", status: "ENABLE", budgetMinor: "20000", budgetMode: "BUDGET_MODE_DAY" });
+    const first = await propose("campaign.budget", "cmp-3", { budget_minor: "25000" });
+    await approve(first);
+    await executeApproval(deps(), { approvalId: first, executedBy: owner });
+    const second = await propose("campaign.budget", "cmp-3", { budget_minor: "22000" });
+    await approve(second);
+    await executeApproval(deps(), { approvalId: second, executedBy: owner });
+    await expect(undoApproval(deps(), { approvalId: first, userId: owner })).rejects.toThrow(/newer change/);
+    expect(tiktok.state.get("cmp-3")!.budgetMinor).toBe("22000");
+    expect((await undoApproval(deps(), { approvalId: second, userId: owner })).status).toBe("executed");
+    expect(tiktok.state.get("cmp-3")!.budgetMinor).toBe("25000");
+  });
+
   it("undoing a pause re-enables the campaign", async () => {
     const [paused] = await db.as(superuser, (q) => q(
       "select id from approval_requests where kind = 'campaign.pause' and status = 'executed' limit 1"));

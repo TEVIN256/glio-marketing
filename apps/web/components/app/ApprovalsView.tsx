@@ -44,6 +44,13 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
     isSuggestion(r) ? "GLIO" : r.requested_by_agent ?? (r.requested_by === user.id ? t.requestedByYou : t.requestedByMember);
   const statusOf = (r: { status: string; expires_at: string | null }) =>
     r.status === "pending" && r.expires_at && new Date(r.expires_at).getTime() <= now ? "expired" : r.status;
+  // Undo is offered only on the latest change in effect for each campaign.
+  const latestExecuted = new Map<string, string>();
+  for (const r of rows) {
+    if (r.status !== "executed" || !r.executed_at) continue;
+    const key = `${r.ad_account_id}:${r.target_id}`;
+    if (!latestExecuted.has(key) || r.executed_at > latestExecuted.get(key)!) latestExecuted.set(key, r.executed_at);
+  }
   const tone: Record<string, string> = { executed: "ok", undone: "other", rejected: "other", expired: "other", failed: "drift", pending: "drift", approved: "ok", executing: "drift" };
 
   return (
@@ -152,12 +159,13 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
                     const st = statusOf(r);
                     const cur = currencyOf(r.ad_account_id);
                     const undoable = canDecide && st === "executed" && !r.undo_of && r.executed_at
+                      && latestExecuted.get(`${r.ad_account_id}:${r.target_id}`) === r.executed_at
                       && now - new Date(r.executed_at).getTime() < UNDO_DAYS * 86_400_000;
                     return (
                       <tr key={r.id}>
                         <th scope="row">
                           <span className="campaign-name">{describeChange(r, cur, lang, t)}</span>
-                          <span className="campaign-id">{clientName(r.client_id)} · {r.undo_of ? t.undoOfEarlier : describeReason(r, lang, t) ?? ""}</span>
+                          <span className="campaign-id">{[clientName(r.client_id), r.undo_of ? t.undoOfEarlier : describeReason(r, lang, t)].filter(Boolean).join(" · ")}</span>
                         </th>
                         <td>
                           {r.before_state || r.after_state ? (

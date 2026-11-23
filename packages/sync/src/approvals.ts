@@ -178,7 +178,7 @@ export async function undoApproval(
   args: { approvalId: string; userId: string },
 ): Promise<ExecuteResult & { undoId: string }> {
   const [orig] = await deps.db.query(
-    `select id, workspace_id, client_id, kind, status, ad_account_id, target_type, target_id, target_name, before_state
+    `select id, workspace_id, client_id, kind, status, ad_account_id, target_type, target_id, target_name, before_state, executed_at
      from public.approval_requests where id = $1`,
     [args.approvalId],
   );
@@ -198,6 +198,14 @@ export async function undoApproval(
   const undo = await deps.db.transaction(async (q) => {
     const [locked] = await q("select status from public.approval_requests where id = $1 for update", [orig.id]);
     if (locked?.status !== "executed") throw new ApprovalError("UNDO_NOT_EXECUTED", "Already undone or changed");
+    // Only the latest change in effect can be undone: restoring an older before-state would silently erase later changes.
+    const [newer] = await q(
+      `select 1 from public.approval_requests
+       where ad_account_id = $1 and target_id = $2 and id <> $3 and status in ('executed', 'executing')
+         and executed_at > $4 limit 1`,
+      [orig.ad_account_id, orig.target_id, orig.id, orig.executed_at],
+    );
+    if (newer) throw new ApprovalError("UNDO_NOT_LATEST", "A newer change to this campaign is in effect; undo that one first");
     const [open] = await q(
       "select 1 from public.approval_requests where undo_of = $1 and status in ('approved', 'executing', 'executed') limit 1",
       [orig.id],

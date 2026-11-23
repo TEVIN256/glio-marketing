@@ -1,4 +1,4 @@
-import { describeChange, describeReason, describeState, isSuggestion } from "@/lib/approvals";
+import { decodeSkipped, describeChange, describeReason, describeState, isSuggestion } from "@/lib/approvals";
 import { isolateNumbers } from "@/components/ReportView";
 import { ERROR_HINTS } from "@/lib/errors";
 import type { Dict, Lang } from "@/lib/i18n";
@@ -57,7 +57,17 @@ export function ApprovalsView({ ws, workspaceName, rows, clients, accounts, user
         )} />
       <p className="fine-print">{t.sgExplain}</p>
       {q.sg !== undefined && (
-        <p className="notice" role="status">{Number(q.sg) > 0 ? t.sgResult.replace("{n}", String(Number(q.sg))) : t.sgNone}</p>
+        <div className="notice" role="status">
+          <p style={{ margin: 0 }}>{Number(q.sg) > 0 ? t.sgResult.replace("{n}", String(Number(q.sg))) : t.sgNone}</p>
+          {decodeSkipped(q.sk).length > 0 && (
+            <>
+              <p style={{ margin: "8px 0 4px" }}><strong>{t.sgSkippedTitle}</strong></p>
+              <ul className="skip-list">
+                {decodeSkipped(q.sk).map((k, i) => <li key={i}><strong>{k.name}</strong>: {tx(`skip_${k.reason}`) ?? k.reason}</li>)}
+              </ul>
+            </>
+          )}
+        </div>
       )}
 
       {q.ap && tx(`apResult_${q.ap}`) && <p className="notice" role="status">{tx(`apResult_${q.ap}`)}</p>}

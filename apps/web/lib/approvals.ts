@@ -60,3 +60,19 @@ export function describeReason(r: { reason: string | null; payload: Record<strin
 }
 
 export const isSuggestion = (r: { requested_by_agent: string | null }) => Boolean(r.requested_by_agent?.startsWith("glio-"));
+
+export const SKIP_REASONS = ["incomplete_data", "open_or_recent_request", "state_unavailable", "not_running", "no_daily_budget", "budget_too_small", "at_guardrail"] as const;
+
+/** Decode the "why not suggested" list from the URL; anything unexpected is dropped. */
+export function decodeSkipped(param: string | undefined): Array<{ name: string; reason: (typeof SKIP_REASONS)[number] }> {
+  if (!param) return [];
+  try {
+    const list = JSON.parse(Buffer.from(param, "base64url").toString("utf8"));
+    if (!Array.isArray(list)) return [];
+    return list.slice(0, 12).flatMap((x) =>
+      Array.isArray(x) && typeof x[0] === "string" && (SKIP_REASONS as readonly string[]).includes(x[1])
+        ? [{ name: x[0].slice(0, 80), reason: x[1] }] : []);
+  } catch {
+    return [];
+  }
+}

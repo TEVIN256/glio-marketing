@@ -181,7 +181,9 @@ export async function checkSuggestions(formData: FormData) {
     );
     const created = results.reduce((n, r) => n + r.created.length, 0);
     console.info(JSON.stringify({ event: "suggestions_checked", ws, created, errors: results.filter((r) => r.error).length }));
-    outcome = `sg=${created}`;
+    // Why campaigns were not suggested (shown under the result), capped to keep the URL short.
+    const skipped = results.flatMap((r) => r.skipped).slice(0, 12).map((k) => [String(k.name ?? k.campaignId).slice(0, 80), k.reason]);
+    outcome = `sg=${created}` + (skipped.length ? `&sk=${Buffer.from(JSON.stringify(skipped)).toString("base64url")}` : "");
   } catch (err) {
     const d = describeError(err);
     console.error(JSON.stringify({ event: "suggestions_failed", ws, code: d.code, error: d.message }));

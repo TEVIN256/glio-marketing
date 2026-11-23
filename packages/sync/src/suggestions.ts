@@ -65,7 +65,7 @@ export interface Evidence {
 export interface SuggestionOutcome {
   clientId: string;
   created: Array<{ id: string; rule: RuleId; campaignId: string }>;
-  skipped: Array<{ campaignId: string; reason: string }>;
+  skipped: Array<{ campaignId: string; name?: string | null; reason: string }>;
 }
 
 const SCALE = 10_000n; // conversions are numeric(…,4): handled as integers x 10^4
@@ -133,7 +133,7 @@ export async function suggestForClient(
   const stats: CampaignStats[] = [];
   for (const r of rows) {
     if (r.n_spend < r.n || r.n_conv < r.n) {
-      out.skipped.push({ campaignId: r.entity_id, reason: "incomplete_data" });
+      out.skipped.push({ campaignId: r.entity_id, name: r.name, reason: "incomplete_data" });
       continue;
     }
     stats.push({ adAccountId: r.ad_account_id, campaignId: r.entity_id, name: r.name, currency: r.currency, spend: BigInt(r.spend), conv: scaled(r.conv) });
@@ -169,7 +169,7 @@ export async function suggestForClient(
 
     for (const c of group) {
       const key = `${c.adAccountId}:${c.campaignId}`;
-      if (busy.has(key)) { out.skipped.push({ campaignId: c.campaignId, reason: "open_or_recent_request" }); continue; }
+      if (busy.has(key)) { out.skipped.push({ campaignId: c.campaignId, name: c.name, reason: "open_or_recent_request" }); continue; }
 
       let rule: RuleId | null = null;
       if (c.conv === 0n && c.spend >= pauseMin) rule = "pause_no_conversions";
@@ -187,10 +187,10 @@ export async function suggestForClient(
         const { writer, target } = await campaignAccess(deps, c.adAccountId, c.campaignId);
         state = await writer.getCampaign(target);
       } catch {
-        out.skipped.push({ campaignId: c.campaignId, reason: "state_unavailable" });
+        out.skipped.push({ campaignId: c.campaignId, name: c.name, reason: "state_unavailable" });
         continue;
       }
-      if (state.status !== "ENABLE") { out.skipped.push({ campaignId: c.campaignId, reason: "not_running" }); continue; }
+      if (state.status !== "ENABLE") { out.skipped.push({ campaignId: c.campaignId, name: c.name, reason: "not_running" }); continue; }
 
       const evidence: Evidence = {
         rule, version: 1, window, currency, spend_minor: String(c.spend), conversions: unscale(c.conv),
@@ -204,18 +204,18 @@ export async function suggestForClient(
       const payload: Record<string, unknown> = {};
 
       if (rule !== "pause_no_conversions") {
-        if (state.budgetMinor === null) { out.skipped.push({ campaignId: c.campaignId, reason: "no_daily_budget" }); continue; }
+        if (state.budgetMinor === null) { out.skipped.push({ campaignId: c.campaignId, name: c.name, reason: "no_daily_budget" }); continue; }
         const current = BigInt(state.budgetMinor);
         let next: bigint;
         if (rule === "cut_budget_high_cpa") {
           next = roundDownToMajor((current * BigInt(100 - s.stepPct)) / 100n, currency);
-          if (next <= 0n || next >= current) { out.skipped.push({ campaignId: c.campaignId, reason: "budget_too_small" }); continue; }
+          if (next <= 0n || next >= current) { out.skipped.push({ campaignId: c.campaignId, name: c.name, reason: "budget_too_small" }); continue; }
         } else {
           const step = BigInt(Math.min(s.stepPct, Number(maxIncreasePct)));
           next = roundDownToMajor((current * (100n + step)) / 100n, currency);
           if (maxDaily !== null && next > maxDaily) { next = maxDaily; evidence.limited_by_guardrail = true; }
           if (step < BigInt(s.stepPct)) evidence.limited_by_guardrail = true;
-          if (next <= current) { out.skipped.push({ campaignId: c.campaignId, reason: "at_guardrail" }); continue; }
+          if (next <= current) { out.skipped.push({ campaignId: c.campaignId, name: c.name, reason: "at_guardrail" }); continue; }
         }
         kind = "campaign.budget";
         payload.budget_minor = String(next);

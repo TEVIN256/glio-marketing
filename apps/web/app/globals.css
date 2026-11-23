@@ -410,3 +410,5 @@ a.figure:hover { border-color: var(--accent); }
   .hero, .demo { padding: 44px 22px; }
 }
 .empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-block-start: 16px; }
+.skip-list { margin: 0; padding-inline-start: 1.2em; }
+.skip-list li + li { margin-block-start: 2px; }

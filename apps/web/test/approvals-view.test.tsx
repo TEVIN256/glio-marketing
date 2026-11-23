@@ -97,3 +97,20 @@ describe("approve buttons name the action", () => {
   });
 });
 
+describe("why campaigns were not suggested", () => {
+  const sk = (list: unknown) => Buffer.from(JSON.stringify(list)).toString("base64url");
+  it("lists each skipped campaign with its reason, in plain words", () => {
+    const html = render({ rows: [], q: { sg: "0", sk: sk([["Demo Campaign D (strong)", "open_or_recent_request"], ["Demo Campaign A", "not_running"]]) } })
+      .replace(/<[^>]+>/g, "");
+    expect(html).toContain("Demo Campaign D (strong): it has an open request, or a suggestion for it was decided in the last 7 days.");
+    expect(html).toContain("Demo Campaign A: the campaign is paused.");
+  });
+  it("ignores anything that isn't a known reason, and broken input", () => {
+    const html = render({ rows: [], q: { sg: "0", sk: sk([["<script>x</script>", "hacked"]]) } });
+    expect(html).not.toContain("hacked");
+    expect(html).not.toContain("<script>x</script>");
+    expect(html).not.toContain("&lt;script&gt;x");
+    expect(render({ rows: [], q: { sg: "0", sk: "not-json" } })).toContain(dict.en.sgNone);
+  });
+});
+

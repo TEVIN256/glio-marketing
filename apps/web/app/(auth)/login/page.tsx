@@ -1,12 +1,14 @@
+import { cookies } from "next/headers";
 import { getDict } from "@/lib/i18n";
-import { safeNext } from "@/lib/safe-next";
-import { signIn, signUp } from "./actions";
+import { NEXT_COOKIE, safeNext } from "@/lib/safe-next";
+import { resendConfirmation, signIn, signUp } from "./actions";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const { t } = await getDict();
   const q = await searchParams;
   const signup = q.mode === "signup";
-  const next = safeNext(q.next);
+  // Where to go after signing in: the page asked for, or (after a confirmation link) the one remembered at sign-up.
+  const next = safeNext(q.next ?? (await cookies()).get(NEXT_COOKIE)?.value);
   const withNext = (path: string) => (next === "/app" ? path : `${path}${path.includes("?") ? "&" : "?"}next=${encodeURIComponent(next)}`);
 
   return (
@@ -15,8 +17,24 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <p className="muted">{t.tagline}</p>
       {next.startsWith("/invite/") && <p className="notice" role="status">{t.inviteSignInHint}</p>}
       {q.m === "check" && <p className="notice" role="status">{t.checkEmail}</p>}
+      {q.m === "confirmed" && <p className="notice" role="status">{t.authConfirmedSignIn}</p>}
       {q.e === "auth" && <p className="notice error" role="alert">{t.authError}</p>}
+      {q.e === "credentials" && <p className="notice error" role="alert">{t.authCredentials}</p>}
+      {q.e === "rate" && <p className="notice error" role="alert">{t.authRate}</p>}
+      {q.e === "exists" && <p className="notice error" role="alert">{t.authExists} <a href={withNext("/login")}>{t.signIn}</a></p>}
+      {q.e === "weak" && <p className="notice error" role="alert">{t.authWeak}</p>}
       {q.e === "signup" && <p className="notice error" role="alert">{t.signUpError}</p>}
+      {q.e === "unconfirmed" && (
+        <div className="notice warn" role="alert">
+          <p style={{ margin: 0 }}>{t.authUnconfirmed}</p>
+          <form className="resend-form" action={resendConfirmation}>
+            <input type="hidden" name="next" value={next} />
+            <label className="sr-only" htmlFor="resend-email">{t.email}</label>
+            <input id="resend-email" name="email" type="email" required dir="ltr" placeholder={t.email} />
+            <button type="submit" className="secondary">{t.authResend}</button>
+          </form>
+        </div>
+      )}
 
       <form className="card stack" action={signup ? signUp : signIn}>
         <input type="hidden" name="next" value={next} />

@@ -427,3 +427,5 @@ button.secondary.danger { color: var(--bad); }
 button.secondary.danger:hover { border-color: var(--bad); color: var(--bad); }
 .invite-link { width: min(560px, 100%); font-size: 0.85rem; }
 .invite-page .invite-what { font-size: 1.1rem; margin: 0; }
+.resend-form { display: flex; gap: 8px; flex-wrap: wrap; margin-block-start: 10px; }
+.resend-form input { flex: 1; min-width: 200px; }

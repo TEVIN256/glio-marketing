@@ -82,6 +82,12 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - **First report email: 2026-11-22**, manual send (synthetic demo data), from reports@glioagency.org, delivered to a Gmail inbox (not spam). `RESEND_API_KEY` is a send-only key restricted to glioagency.org ("GLIO production" in Resend). Resend's "Forge" upgrade banner was left alone; check what DNS changes it needs before activating.
 - Error codes: `RESEND_NOT_CONFIGURED`, `RESEND_401` (bad key), `RESEND_403`/`RESEND_422` (domain not verified or bad address), `NO_RECIPIENTS`, `REFRESH_<code>` (TikTok sync failed before a scheduled send; retried the next day).
 
+## Team and invitations
+
+- Workspace → Team (sidebar): members and roles; owners invite by email (manager, analyst, client viewer for one client), change roles, remove members, cancel invites.
+- The invite link is valid 7 days and works only for the invited email (sign in or sign up with it). Without `RESEND_API_KEY` the owner copies the link shown after inviting.
+- Audit: `member.invited`, `member.invite_revoked`, `member.joined`, `member.role_changed`, `member.removed`.
+
 ## Approval notifications
 
 - Emails to each owner/manager when requests wait for approval: after "Check for suggestions now", after someone proposes a change (not to the proposer), and in the daily job. Each request is announced once (`notified_at`). Needs `RESEND_API_KEY`.
@@ -215,6 +221,17 @@ select
           and table_name = 'approval_requests' and column_name = 'notified_at')               as notified_column,  -- expect true
   (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'notification_settings') as settings_rls, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                as policies;         -- expect 38
+```
+
+### Diagnostic for 20261123000002_invitations
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'invitations')     as invitations_rls,  -- expect true
+  to_regprocedure('public.accept_invitation(text)') is not null
+    and to_regprocedure('public.invitation_preview(text)') is not null                             as functions,        -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                    as policies,         -- expect 41
+  not has_table_privilege('authenticated', 'public.invitations', 'delete')                           as no_delete;        -- expect true
 ```
 
 ## Migration log

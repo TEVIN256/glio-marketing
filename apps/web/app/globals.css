@@ -416,3 +416,14 @@ a.figure:hover { border-color: var(--accent); }
 .notify-toggle label { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 0; }
 .notify-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
 .notify-toggle button { padding: 5px 12px; font-size: 0.85rem; }
+.invite-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.invite-form input[type="email"] { width: 280px; }
+.role-help { margin: 0; padding-inline-start: 1.2em; font-size: 0.88rem; }
+.member-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.member-actions form { display: flex; gap: 6px; align-items: center; }
+.member-actions select { padding-block: 5px; }
+.member-actions button { padding: 5px 10px; font-size: 0.85rem; }
+button.secondary.danger { color: var(--bad); }
+button.secondary.danger:hover { border-color: var(--bad); color: var(--bad); }
+.invite-link { width: min(560px, 100%); font-size: 0.85rem; }
+.invite-page .invite-what { font-size: 1.1rem; margin: 0; }

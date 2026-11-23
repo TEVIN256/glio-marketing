@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         workspaces={workspaces}
         labels={{
           home: t.navHome, workspaces: t.workspaces, clients: t.clients, allClients: t.navAllClients,
-          switchLang: t.switchLang, signOut: t.signOut, website: t.navWebsite, approvals: t.navApprovals,
+          switchLang: t.switchLang, signOut: t.signOut, website: t.navWebsite, approvals: t.navApprovals, team: t.navTeam,
         }}
       />
       <div className="app-main">

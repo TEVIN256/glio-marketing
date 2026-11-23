@@ -48,6 +48,7 @@ beforeAll(async () => {
       await q("insert into client_guardrails (workspace_id, client_id, max_daily_budget_minor) values ($1, $2, 50000)", [wsA, cid]);
     }
     await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, true)", [wsA, alice]);
+    await q("insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'seed-a@example.test', 'analyst', repeat('1', 64), $2)", [wsA, alice]);
   });
 
   await db.as(user(bob), async (q) => {
@@ -57,6 +58,7 @@ beforeAll(async () => {
     await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-b@example.test}')", [wsB, clientB1]);
     await q("insert into client_guardrails (workspace_id, client_id) values ($1, $2)", [wsB, clientB1]);
     await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, false)", [wsB, bob]);
+    await q("insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'seed-b@example.test', 'manager', repeat('2', 64), $2)", [wsB, bob]);
   });
 
   // Credentials, sync runs, raw payloads and metrics are written by the server only.
@@ -121,7 +123,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(17); // 16 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(18); // 17 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -378,6 +380,69 @@ describe("notifications (migration 0008)", () => {
       `insert into approval_requests (workspace_id, client_id, kind, requested_by, ad_account_id, target_type, target_id, notified_at)
        select $1, $2, 'campaign.pause', $3, a.id, 'campaign', 'cmp-n', now() from ad_accounts a where a.client_id = $2`,
       [wsA, clientA1, alice]))).rejects.toThrow(/row-level security/);
+  });
+});
+
+describe("invitations (migration 0009)", () => {
+  const H = (c: string) => c.repeat(64);
+  let invitee: string;
+  let stranger: string;
+
+  beforeAll(async () => {
+    invitee = await db.createUser("invitee@example.test");
+    stranger = await db.createUser("stranger@example.test");
+  });
+
+  it("only owners invite (as themselves) and see invites; analysts and viewers can't", async () => {
+    await db.as(user(alice), (q) => q(
+      "insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'invitee@example.test', 'manager', $2, $3)",
+      [wsA, H("a"), alice]));
+    await expect(db.as(user(alice), (q) => q(
+      "insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'x@example.test', 'manager', $2, $3)",
+      [wsA, H("b"), bob]))).rejects.toThrow(/row-level security/);
+    await expect(db.as(user(carol), (q) => q(
+      "insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'y@example.test', 'analyst', $2, $3)",
+      [wsA, H("c"), carol]))).rejects.toThrow(/row-level security/);
+    expect(await db.as(user(carol), (q) => q("select id from invitations"))).toEqual([]);
+  });
+
+  it("owners can only revoke an invite, not change it", async () => {
+    await expect(db.as(user(alice), (q) => q("update invitations set role = 'manager' where email = 'seed-a@example.test'")))
+      .rejects.toThrow(/permission denied/);
+  });
+
+  it("the preview hides the invited email from a different account", async () => {
+    const [p] = await db.as(user(stranger), (q) => q("select * from public.invitation_preview($1)", [H("a")]));
+    expect(p).toMatchObject({ workspace_name: "Test Agency A", role: "manager", status: "wrong_account", invited_email: "i***@example.test" });
+    const [mine] = await db.as(user(invitee), (q) => q("select * from public.invitation_preview($1)", [H("a")]));
+    expect(mine).toMatchObject({ status: "open", invited_email: "invitee@example.test" });
+  });
+
+  it("only the invited email can accept; accepting adds the membership once and is audited", async () => {
+    await expect(db.as(user(stranger), (q) => q("select public.accept_invitation($1)", [H("a")]))).rejects.toThrow(/different email/);
+    const [r] = await db.as(user(invitee), (q) => q("select public.accept_invitation($1) as ws", [H("a")]));
+    expect(r!.ws).toBe(wsA);
+    expect(await db.as(user(invitee), (q) => q("select role from memberships where user_id = $1", [invitee]))).toEqual([{ role: "manager" }]);
+    await expect(db.as(user(invitee), (q) => q("select public.accept_invitation($1)", [H("a")]))).rejects.toThrow(/no longer valid/);
+    const audit = await db.as(superuser, (q) => q("select action from audit_log where action = 'member.joined' and actor_user_id = $1", [invitee]));
+    expect(audit).toHaveLength(1);
+  });
+
+  it("revoked and expired invites can't be accepted", async () => {
+    await db.as(user(alice), (q) => q(
+      "insert into invitations (workspace_id, email, role, client_id, token_hash, invited_by) values ($1, 'stranger@example.test', 'client_viewer', $2, $3, $4)",
+      [wsA, clientA1, H("d"), alice]));
+    await db.as(user(alice), (q) => q("update invitations set revoked_at = now() where token_hash = $1", [H("d")]));
+    await expect(db.as(user(stranger), (q) => q("select public.accept_invitation($1)", [H("d")]))).rejects.toThrow(/no longer valid/);
+    await db.as(user(alice), (q) => q(
+      "insert into invitations (workspace_id, email, role, token_hash, invited_by, expires_at) values ($1, 'stranger@example.test', 'analyst', $2, $3, now() - interval '1 day')",
+      [wsA, H("e"), alice]));
+    await expect(db.as(user(stranger), (q) => q("select public.accept_invitation($1)", [H("e")]))).rejects.toThrow(/no longer valid/);
+    expect(await db.as(user(stranger), (q) => q("select workspace_id from memberships"))).toEqual([]);
+  });
+
+  it("signed-out visitors can't use the functions at all", async () => {
+    await expect(db.as(anon, (q) => q("select public.accept_invitation($1)", [H("a")]))).rejects.toThrow(/permission denied/);
   });
 });
 

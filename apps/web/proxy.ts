@@ -42,7 +42,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!signedIn && !isPublicPath(request.nextUrl.pathname)) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const login = new URL("/login", request.url);
+    const path = request.nextUrl.pathname + request.nextUrl.search;
+    if (path !== "/" && path.length <= 300) login.searchParams.set("next", path);
+    return NextResponse.redirect(login);
   }
   return response;
 }

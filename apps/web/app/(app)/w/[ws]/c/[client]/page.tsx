@@ -16,7 +16,7 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
-import { connectTikTok, generateReport, loadDemoData, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
+import { connectTikTok, deleteClient, generateReport, loadDemoData, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
 import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
@@ -106,6 +106,10 @@ export default async function ClientDashboard({
   const notices = (
     <>
       {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
+      {q.e === "delete_confirm" && <p className="notice error" role="alert">{t.deleteClientConfirmError}</p>}
+      {q.e === "delete" && (
+        <p className="notice error" role="alert">{t.deleteClientError} {q.code && <code className="num">({q.code})</code>}</p>
+      )}
       {q.e === "period" && <p className="notice error" role="alert">{t.periodError}</p>}
       {q.e === "recipients" && <p className="notice error" role="alert">{t.emailRecipientsError}</p>}
       {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync" || q.e === "email") && (
@@ -509,6 +513,21 @@ export default async function ClientDashboard({
           </div>
         )}
       </section>
+
+      {access.role === "owner" && (
+        <section id="delete" className="card stack danger-card no-print" aria-labelledby="delete-h">
+          <h2 id="delete-h">{t.deleteClientTitle}</h2>
+          <p>{t.deleteClientText}</p>
+          <p className="muted">{t.deleteClientKept}</p>
+          <form action={deleteClient} className="delete-form">
+            <input type="hidden" name="ws" value={ws} />
+            <input type="hidden" name="client" value={client} />
+            <label htmlFor="delete-confirm">{t.deleteClientConfirm} <strong><bdi>{access.client?.name}</bdi></strong></label>
+            <input id="delete-confirm" name="confirm" required autoComplete="off" />
+            <button type="submit" className="danger">{t.deleteClientButton}</button>
+          </form>
+        </section>
+      )}
     </div>
   );
 }

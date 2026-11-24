@@ -44,6 +44,7 @@ export default async function WorkspacePage({
       />
       {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
       {q.joined && <p className="notice" role="status">{t.joinedNotice}</p>}
+      {q.deleted && <p className="notice" role="status">{t.clientDeletedNotice}</p>}
 
       <div className="tile-grid">
         {(clients ?? []).map((c) => {

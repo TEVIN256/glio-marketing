@@ -7,3 +7,4 @@ export * from "./reconcile.ts";
 export * from "./connect.ts";
 export * from "./approvals.ts";
 export * from "./suggestions.ts";
+export * from "./delete-client.ts";

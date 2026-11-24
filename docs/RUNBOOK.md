@@ -125,21 +125,27 @@ Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one 
 - The link opens `/s/<secret>` without a GLIO account. Expired, revoked or wrong links show "This link isn't available."
 - Audit: `report.shared`, `report.share_revoked`. Views are counted in `report_shares.view_count` / `last_viewed_at`.
 
+## Data retention and client deletion
+
+- **Delete a client** (owners): client page → "Delete client" at the bottom → type the client's name → "Delete client and all its data". Removes everything with that client's id (ad accounts, tokens in Vault, synced data, reports, share links, email schedule and log, unsubscribes, approvals, settings, client viewers). Audit: `client.deleted` with the name and record counts. Logs: `client_deleted` / `client_delete_failed`. Nothing changes in the TikTok account; to also cut GLIO's access there, the advertiser removes the app in TikTok.
+- **Retention purge**: step 5 of `/api/cron/daily` calls `purge_expired_data()` (migration 0013): invitations 90 days after accepted/cancelled/expired, report delivery rows after 24 months. Result in the `daily_job` log as `purged`.
+- Not deleted: the audit log (append-only). Whole workspace or user account deletion: on request (info@glioagency.org) until built.
+
 ## TikTok Marketing API app
 
 - Developer account on the TikTok for Business developer portal (business-api.tiktok.com/portal), signed in with info@glioagency.org. Developer registration submitted 2026-11-22 (company: the legal name on the CR, website https://www.glioagency.org, location Saudi Arabia, region EMEA, services: Campaign Management, Reporting, Ad Measurement, Accounts).
 - App **GLIO** (Marketing API) submitted 2026-11-22, status **Pending** (TikTok says up to 3 days).
   - Advertiser redirect URL: `https://www.glioagency.org/integrations/tiktok/callback` (must match exactly, with `www`).
   - Scopes: Ad account management, Ads management, Reporting. Nothing else; request more (e.g. Pixel management) only with a reason.
-- **2026-11-25: developer profile rejected** (fields: Account type, Company Name, Company Website): "your company name doesn't match your email domain or company website". Fix: the website now names the legal entity next to the brand (footer, about, privacy, terms) with the CR number (ADR-027); then Update Application on the profile with the Description below, and resubmit the app once the profile is approved.
-  - **2026-11-25 resubmitted:** profile as **Technology Company** (company name = legal name, website https://www.glioagency.org, location Saudi Arabia, region EMEA), with a "how we use TikTok data" description; then the **GLIO** app resubmitted (app description under 500 characters; scopes Ad account management, Ads management, Reporting): status **Pending**.
+- **2026-11-24: developer profile rejected** (fields: Account type, Company Name, Company Website): "your company name doesn't match your email domain or company website". Fix: the website now names the legal entity next to the brand (footer, about, privacy, terms) with the CR number (ADR-027); then Update Application on the profile with the Description below, and resubmit the app once the profile is approved.
+  - **2026-11-24 resubmitted:** profile as **Technology Company** (company name = legal name, website https://www.glioagency.org, location Saudi Arabia, region EMEA), with a "how we use TikTok data" description; then the **GLIO** app resubmitted (app description under 500 characters; scopes Ad account management, Ads management, Reporting): status **Pending**.
   - Profile description used for the first resubmission attempt: "GLIO (glioagency.org) is the trading name of Sutoor AlMustaqbaliyya Agency for Commercial Services, Commercial Registration 7042386917, Kingdom of Saudi Arabia. The legal name, brand and CR number are shown together in the footer of glioagency.org and in its privacy policy. Our email domain is glioagency.org. We are a digital marketing agency that manages TikTok advertising for Saudi businesses; our platform at glioagency.org reads reporting data and, only after a client's approval, changes campaign status or budgets on the ad accounts our clients authorise."
 - After approval the portal shows the **App ID** and **Secret**. Put them in Vercel as `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (**Secret**); never in chat, code or logs.
 - **Connection flow (built 2026-11-22, ADR-016):** client page → "Connect TikTok" → TikTok authorization → `/integrations/tiktok/callback` → accounts attached to the client, token in Supabase Vault → "Sync TikTok data" (uses the period form) → reports as before.
 - **Before the first real connection:**
   1. Check Vault in the Supabase SQL editor: `select exists (select 1 from pg_extension where extname = 'supabase_vault') as vault_on;` expect `true`. If `false`, enable it under Database → Extensions (supabase_vault). **Checked 2026-11-22 on the Frankfurt project: `true`.**
   2. Add `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (Secret) in Vercel, then redeploy.
-  3. Connect one real account, sync a short period, and compare the dashboard with TikTok Ads Manager (spend, impressions, clicks, conversions per day; the reconciliation badge should say "Matches the platform"). The API details were checked against TikTok's docs on 2026-11-25 (ADR-028); the two remaining `TODO(verify)` items in `packages/connectors/src/tiktok/api.ts` (totals row for an inactive range, advertiser/info id limit) are settled on this first account.
+  3. Connect one real account, sync a short period, and compare the dashboard with TikTok Ads Manager (spend, impressions, clicks, conversions per day; the reconciliation badge should say "Matches the platform"). The API details were checked against TikTok's docs on 2026-11-24 (ADR-028); the two remaining `TODO(verify)` items in `packages/connectors/src/tiktok/api.ts` (totals row for an inactive range, advertiser/info id limit) are settled on this first account.
 - TikTok error codes: `tiktok_40001`/`40102`/`40104`/`40105`/`40106` = authorisation expired or revoked (connect again); `tiktok_40016`/`40100`/`40133`/`5xxxx`/`60001` = throttled or TikTok down (retried, then try later); `tiktok_40119` = developer and advertiser not the same company.
 - Error codes on the client page: `TIKTOK_NOT_CONFIGURED` (Vercel variables missing), `TIKTOK_CANCELLED` (not approved on TikTok), `TIKTOK_NO_ACCOUNTS`, `3F000` / `42883` (Vault not enabled), `tiktok_<n>` (TikTok API error code).
 
@@ -286,6 +292,15 @@ select
   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'report_deliveries'
           and column_name = 'unsubscribe_token_hash')                                                    as token_column, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                         as policies;     -- expect 49
+```
+
+### Diagnostic for 20261124000004_retention
+
+```sql
+select
+  exists (select 1 from pg_proc where proname = 'purge_expired_data')               as purge_fn,          -- expect true
+  has_table_privilege('service_role', 'public.report_deliveries', 'DELETE')           as server_can_delete, -- expect false
+  (select count(*) from pg_policies where schemaname = 'public')                      as policies;          -- expect 49
 ```
 
 ## Migration log

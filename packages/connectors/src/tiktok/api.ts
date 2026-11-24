@@ -2,7 +2,7 @@
  * TikTok API for Business (Marketing API v1.3): endpoints, parameters and
  * response shapes. This file is the ONLY place these details live.
  *
- * Checked on 2026-11-25 against TikTok's official docs (business-api.tiktok.com/portal/docs,
+ * Checked on 2026-11-24 against TikTok's official docs (business-api.tiktok.com/portal/docs,
  * doc ids noted below) and the official SDK (github.com/tiktok/tiktok-business-api-sdk):
  * base URL, authorization and token exchange, advertiser list/info, the
  * integrated report (params, metric names, string values, "-" for no value,

@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DEMO_EXTERNAL_ID, TikTokConnector, demoTikTokFetch } from "@glio/connectors";
 import { ClaudeCommentaryModel, ResendMailer, createReportSnapshot, deliverReport, normalizeRecipients } from "@glio/reports";
-import { InMemorySecretStore, reconcile, runSync } from "@glio/sync";
+import { InMemorySecretStore, VaultSecretStore, deleteClientData, reconcile, runSync } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
@@ -215,3 +215,30 @@ export async function sendReportNow(formData: FormData) {
   redirect(`${base}?from=${from}&to=${to}&${outcome}#email`);
 }
 
+
+/**
+ * Delete the client and all its data (ADR-029). Owners only, checked under the
+ * user's own permissions first, and the client's exact name must be typed.
+ */
+export async function deleteClient(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.client || access.role !== "owner") redirect(`${base}?e=forbidden#delete`);
+  if (String(formData.get("confirm") ?? "").trim() !== access.client.name.trim()) redirect(`${base}?e=delete_confirm#delete`);
+
+  let failure: string | null = null;
+  try {
+    const db = serverDb();
+    const r = await deleteClientData({ db, secrets: new VaultSecretStore(db) }, { workspaceId: ws, clientId: client, deletedBy: access.user.id });
+    console.info(JSON.stringify({ event: "client_deleted", workspace: ws, deleted: r.deleted, secrets_deleted: r.secretsDeleted, secrets_failed: r.secretsFailed }));
+  } catch (err) {
+    const d = describeError(err);
+    console.error(JSON.stringify({ event: "client_delete_failed", client, code: d.code, error: d.message }));
+    failure = d.code;
+  }
+  // redirect() must be called outside try/catch.
+  if (failure) redirect(`${base}?e=delete&code=${encodeURIComponent(failure)}#delete`);
+  redirect(`/w/${ws}?deleted=1`);
+}

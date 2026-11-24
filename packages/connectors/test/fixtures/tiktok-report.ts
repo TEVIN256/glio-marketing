@@ -1,6 +1,6 @@
 /**
  * SYNTHETIC TikTok report pages for tests, shaped after the documented v1.3
- * reporting response (checked 2026-11-25, see src/tiktok/api.ts). IDs and
+ * reporting response (checked 2026-11-24, see src/tiktok/api.ts). IDs and
  * names are obviously fake. Compare with an anonymised real response once a
  * real account is connected.
  */

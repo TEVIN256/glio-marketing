@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { DEMO_EXTERNAL_ID } from "@glio/connectors";
 import { addDays, todayIn } from "@glio/core";
 import { ClaudeCommentaryModel, ResendMailer, runScheduledReports } from "@glio/reports";
-import { VaultSecretStore, suggestForClients } from "@glio/sync";
+import { VaultSecretStore, purgeExpiredData, suggestForClients } from "@glio/sync";
 import { cronAuthorized } from "@/lib/cron-auth";
 import { notifyApprovals } from "@/lib/notify-run";
 import { env } from "@/lib/env";
@@ -79,6 +79,13 @@ export async function GET(request: NextRequest) {
     }
   } else {
     result.reports = { error: "RESEND_NOT_CONFIGURED" };
+  }
+
+  // 5. Retention: delete personal data past its retention period (migration 0013)
+  try {
+    result.purged = await purgeExpiredData(db);
+  } catch (err) {
+    result.purged = { error: describeError(err).code };
   }
 
   console.info(JSON.stringify({ event: "daily_job", ...result }));

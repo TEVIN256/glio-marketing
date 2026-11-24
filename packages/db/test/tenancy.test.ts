@@ -103,6 +103,9 @@ beforeAll(async () => {
         `insert into report_deliveries (workspace_id, client_id, snapshot_id, period_from, period_to, recipient, trigger, status, provider_message_id)
          values ($1, $2, $3, '2026-01-01', '2026-01-01', 'reports@example.test', 'schedule', 'sent', 'test-message')`,
         [a.workspace_id, a.client_id, snap.id]);
+      await q(
+        `insert into report_unsubscribes (workspace_id, client_id, email) values ($1, $2, 'stopped@example.test')`,
+        [a.workspace_id, a.client_id]);
     }
   });
 });
@@ -203,6 +206,7 @@ describe("client_viewer", () => {
       expect((await q("select client_id from report_schedules")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from report_deliveries")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from report_shares")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select client_id from report_unsubscribes")).map((r) => r.client_id)).toEqual([clientA1]);
     });
   });
 

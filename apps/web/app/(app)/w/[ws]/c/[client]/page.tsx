@@ -44,7 +44,7 @@ export default async function ClientDashboard({
   const base = `/w/${ws}/c/${client}`;
   const keepRange: Record<string, string> = activePreset ? { p: activePreset } : { from: period.from, to: period.to };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -59,6 +59,7 @@ export default async function ClientDashboard({
     supabase.from("suggestion_settings")
       .select("enabled, pause_min_spend_major, high_cpa_pct, low_cpa_pct, min_conversions_for_cut, min_conversions_for_raise, step_pct")
       .eq("client_id", client).maybeSingle(),
+    supabase.from("report_unsubscribes").select("email, unsubscribed_at").eq("client_id", client).order("unsubscribed_at", { ascending: false }),
   ]);
   const sg = sgSettings ?? {
     enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
@@ -133,7 +134,7 @@ export default async function ClientDashboard({
       {q.mail === "saved" && <p className="notice" role="status">{t.emailSaved}</p>}
       {q.mail === "sent" && (
         <p className={Number(q.f) > 0 ? "notice warn" : "notice"} role="status">
-          {fill(t.emailSent, q.n)} {Number(q.f) > 0 && fill(t.emailFailed, q.f)}{" "}
+          {fill(t.emailSent, q.n)} {Number(q.f) > 0 && fill(t.emailFailed, q.f)} {Number(q.u) > 0 && fill(t.emailSkippedUnsub, q.u)}{" "}
           {Number(q.f) > 0 && q.code && ERROR_HINTS[q.code] ? ERROR_HINTS[q.code]![lang] : null}
         </p>
       )}
@@ -473,6 +474,18 @@ export default async function ClientDashboard({
             </form>
             <p className="fine-print">{t.emailSendNowHint}</p>
           </>
+        )}
+        {unsubscribedRows && unsubscribedRows.length > 0 && (
+          <div className="notice" role="note">
+            <p style={{ margin: 0 }}>{t.emailUnsubscribedList}</p>
+            <ul className="unsub-list">
+              {unsubscribedRows.map((u) => (
+                <li key={u.email}>
+                  <bdi dir="ltr">{u.email}</bdi> <span className="num muted">{new Date(u.unsubscribed_at).toISOString().slice(0, 10)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {recentDeliveries && recentDeliveries.length > 0 && (
           <div className="table-wrap">

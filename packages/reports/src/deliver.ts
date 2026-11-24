@@ -5,6 +5,7 @@ import { type EmailLang, renderReportEmail } from "./email.ts";
 import type { Mailer } from "./mailer.ts";
 import { SHARE_DAYS_DEFAULT, createShare } from "./shares.ts";
 import { createReportSnapshot } from "./snapshot.ts";
+import { newUnsubscribeToken, unsubscribedEmails } from "./unsubscribe.ts";
 
 /**
  * Emailed reports (M6). A delivery = one report snapshot (exactly what is
@@ -94,6 +95,8 @@ export interface DeliverResult {
   failed: Array<{ recipient: string; code: string }>;
   /** Scheduled sends already delivered earlier for this period. */
   alreadySent: string[];
+  /** Recipients who unsubscribed from this client's reports (skipped). */
+  unsubscribed: string[];
 }
 
 /** Recipients that already received this client's scheduled report for this period. */
@@ -111,14 +114,16 @@ async function logDelivery(
   row: {
     workspaceId: string; clientId: string; snapshotId: string | null; period: { from: string; to: string };
     recipient: string; trigger: string; status: "sent" | "failed"; messageId?: string; errorCode?: string; sentBy?: string;
+    unsubscribeHash?: string;
   },
 ): Promise<void> {
   await db.query(
     `insert into public.report_deliveries
-       (workspace_id, client_id, snapshot_id, period_from, period_to, recipient, trigger, status, provider_message_id, error_code, sent_by)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       (workspace_id, client_id, snapshot_id, period_from, period_to, recipient, trigger, status, provider_message_id, error_code, sent_by,
+        unsubscribe_token_hash)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [row.workspaceId, row.clientId, row.snapshotId, row.period.from, row.period.to, row.recipient, row.trigger, row.status,
-      row.messageId ?? null, row.errorCode ?? null, row.sentBy ?? null],
+      row.messageId ?? null, row.errorCode ?? null, row.sentBy ?? null, row.unsubscribeHash ?? null],
   );
 }
 
@@ -133,9 +138,13 @@ export async function deliverReport(deps: DeliverDeps, args: DeliverArgs): Promi
   const [client] = await deps.db.query("select id, workspace_id, name from public.clients where id = $1", [args.clientId]);
   if (!client) throw Object.assign(new Error("Client not found"), { code: "CLIENT_NOT_FOUND" });
 
+  const stopped = await unsubscribedEmails(deps.db, args.clientId);
   const done = args.trigger === "schedule" ? await alreadyDelivered(deps.db, args.clientId, args.period) : new Set<string>();
-  const pending = valid.filter((r) => !done.has(r));
-  const result: DeliverResult = { snapshotId: null, sent: [], failed: [], alreadySent: valid.filter((r) => done.has(r)) };
+  const pending = valid.filter((r) => !done.has(r) && !stopped.has(r));
+  const result: DeliverResult = {
+    snapshotId: null, sent: [], failed: [],
+    alreadySent: valid.filter((r) => done.has(r) && !stopped.has(r)), unsubscribed: valid.filter((r) => stopped.has(r)),
+  };
   if (pending.length === 0) return result;
 
   const snapshot = await createReportSnapshot(
@@ -148,26 +157,34 @@ export async function deliverReport(deps: DeliverDeps, args: DeliverArgs): Promi
   result.snapshotId = snapshot.snapshotId;
   // One read-only link per delivery, so recipients without a GLIO account can open the full report.
   const share = await createShare(deps.db, { snapshotId: snapshot.snapshotId, days: SHARE_DAYS_DEFAULT, createdByLabel: "report-email" });
-  const email = renderReportEmail({
-    report: snapshot.report,
-    commentary: { ar: snapshot.commentary.ar, en: snapshot.commentary.en, source: snapshot.commentary.source },
-    clientName: client.name,
-    lang: args.language,
-    snapshotUrl: `${deps.appUrl.replace(/\/$/, "")}/w/${client.workspace_id}/c/${client.id}/r/${snapshot.snapshotId}`,
-    shareUrl: `${deps.appUrl.replace(/\/$/, "")}/s/${share.token}`,
-    shareDays: SHARE_DAYS_DEFAULT,
-    contactEmail: deps.replyTo,
-  });
+  const appUrl = deps.appUrl.replace(/\/$/, "");
 
   for (const recipient of pending) {
+    // Each recipient gets their own unsubscribe link (header for one-click, and in the footer).
+    const unsub = newUnsubscribeToken();
+    const email = renderReportEmail({
+      report: snapshot.report,
+      commentary: { ar: snapshot.commentary.ar, en: snapshot.commentary.en, source: snapshot.commentary.source },
+      clientName: client.name,
+      lang: args.language,
+      snapshotUrl: `${appUrl}/w/${client.workspace_id}/c/${client.id}/r/${snapshot.snapshotId}`,
+      shareUrl: `${appUrl}/s/${share.token}`,
+      shareDays: SHARE_DAYS_DEFAULT,
+      contactEmail: deps.replyTo,
+      unsubscribeUrl: `${appUrl}/u/${unsub.token}`,
+    });
     const base = {
       workspaceId: client.workspace_id as string, clientId: args.clientId, snapshotId: snapshot.snapshotId,
-      period: args.period, recipient, trigger: args.trigger, sentBy: args.sentBy,
+      period: args.period, recipient, trigger: args.trigger, sentBy: args.sentBy, unsubscribeHash: unsub.hash,
     };
     try {
       const { id } = await deps.mailer.send({
         from: deps.from, to: recipient, replyTo: deps.replyTo, subject: email.subject, html: email.html, text: email.text,
         idempotencyKey: `glio-report-${snapshot.snapshotId}-${recipient}`,
+        headers: {
+          "List-Unsubscribe": `<${appUrl}/api/unsubscribe/${unsub.token}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
       });
       await logDelivery(deps.db, { ...base, status: "sent", messageId: id });
       result.sent.push(recipient);
@@ -187,7 +204,7 @@ export async function deliverReport(deps: DeliverDeps, args: DeliverArgs): Promi
 export interface ScheduledOutcome {
   clientId: string;
   period: { from: string; to: string };
-  status: "sent" | "partial" | "failed" | "already_sent";
+  status: "sent" | "partial" | "failed" | "already_sent" | "all_unsubscribed";
   sent: number;
   failed: number;
   errorCode?: string;
@@ -212,7 +229,12 @@ export async function runScheduledReports(
   for (const s of schedules) {
     const run = scheduledRunIfDue({ frequency: s.frequency, sendWeekday: Number(s.send_weekday) }, today);
     if (!run) continue;
-    const recipients = normalizeRecipients(s.recipients as string[]).valid;
+    const stopped = await unsubscribedEmails(deps.db, s.client_id);
+    const recipients = normalizeRecipients(s.recipients as string[]).valid.filter((r) => !stopped.has(r));
+    if (recipients.length === 0) {
+      outcomes.push({ clientId: s.client_id, period: run.period, status: "all_unsubscribed", sent: 0, failed: 0 });
+      continue;
+    }
     const done = await alreadyDelivered(deps.db, s.client_id, run.period);
     if (recipients.every((r) => done.has(r))) {
       outcomes.push({ clientId: s.client_id, period: run.period, status: "already_sent", sent: 0, failed: 0 });

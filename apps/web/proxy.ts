@@ -8,7 +8,7 @@ import { type NextRequest, NextResponse } from "next/server";
  */
 // /api/cron: no user session; each cron route checks CRON_SECRET itself.
 // /s: read-only report share links (the token in the URL is the access check).
-const PUBLIC_PREFIXES = ["/s", "/login", "/auth/callback", "/auth/confirm", "/privacy", "/terms", "/api/cron"];
+const PUBLIC_PREFIXES = ["/s", "/login", "/auth/callback", "/auth/confirm", "/u", "/api/unsubscribe", "/privacy", "/terms", "/api/cron"];
 
 /** The company website (home, privacy, terms) and the sign-in pages are public. */
 export function isPublicPath(pathname: string): boolean {

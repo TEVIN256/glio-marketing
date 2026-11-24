@@ -80,6 +80,7 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - Daily job: `apps/web/vercel.json` → `/api/cron/daily` at 05:00 UTC (08:00 Riyadh): refresh connected TikTok accounts (last 7 days), GLIO suggestions, then scheduled report emails (ADR-020). Check runs under Vercel → project → Settings → Cron Jobs, and the logs for `daily_job` events.
 - Per client: client page → "Email reports" (recipients, frequency, weekday, language) and "Email the chosen period's report now". The last 5 deliveries are listed there; all of them are in `report_deliveries`.
 - **First report email: 2026-11-22**, manual send (synthetic demo data), from reports@glioagency.org, delivered to a Gmail inbox (not spam). `RESEND_API_KEY` is a send-only key restricted to glioagency.org ("GLIO production" in Resend). Resend's "Forge" upgrade banner was left alone; check what DNS changes it needs before activating.
+- Unsubscribe (ADR-026): every report email has its own link at the bottom (`/u/<secret>`, a page with one button) and a one-click `List-Unsubscribe` header (mail apps' own Unsubscribe button POSTs to `/api/unsubscribe/<secret>`). Unsubscribed addresses are listed on the client page and skipped by every send; only the person can subscribe again, from the same link. Audit: `report.unsubscribed` (via page or one-click), `report.resubscribed`.
 - Error codes: `RESEND_NOT_CONFIGURED`, `RESEND_401` (bad key), `RESEND_403`/`RESEND_422` (domain not verified or bad address), `NO_RECIPIENTS`, `REFRESH_<code>` (TikTok sync failed before a scheduled send; retried the next day).
 
 ## Team and invitations
@@ -113,6 +114,8 @@ Sign-up confirmation and password reset emails are sent by Supabase Auth through
    - **Confirm signup**: subject `تأكيد بريدك في GLIO · Confirm your GLIO email`, body = `supabase/templates/confirm-signup.html`.
    - **Reset password**: subject `إعادة تعيين كلمة المرور في GLIO · Reset your GLIO password`, body = `supabase/templates/reset-password.html`.
 5. Supabase → Authentication → Rate Limits: with custom SMTP the email limit starts at 30 per hour; raise it if needed.
+
+**Live since 2026-11-24**: custom SMTP and both templates set in Supabase; a password reset was tested end to end (email from no-reply@glioagency.org, link opened, new password set).
 
 Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one button (so link-scanning email security tools can't use the token first) that verifies it on the server. They work in any browser or device, unlike the old `/auth/callback?code=…` links (kept for emails already sent). Logs: `email_link_failed` events. Resend → Emails lists every message sent.
 
@@ -269,6 +272,16 @@ select
 select
   (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'report_shares') as shares_rls, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                   as policies;   -- expect 48
+```
+
+### Diagnostic for 20261124000003_report_unsubscribes
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'report_unsubscribes') as unsub_rls,   -- expect true
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'report_deliveries'
+          and column_name = 'unsubscribe_token_hash')                                                    as token_column, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                         as policies;     -- expect 49
 ```
 
 ## Migration log

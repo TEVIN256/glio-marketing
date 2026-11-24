@@ -21,6 +21,8 @@ export interface ReportEmailInput {
   shareDays?: number;
   /** Who to write to for questions or to stop these emails. */
   contactEmail: string;
+  /** This recipient's own unsubscribe link (one click, no account). */
+  unsubscribeUrl?: string;
 }
 
 export interface RenderedEmail {
@@ -46,6 +48,9 @@ const T = {
     shareValid: (d: number) => `يعمل الرابط لمدة ${d} يومًا ولا يحتاج إلى حساب.`,
     trust: "كل رقم في هذا التقرير مصدره بيانات المنصة الإعلانية نفسها، ومطابَق مع مجاميعها.",
     why: "وصلك هذا البريد لأنك مُضاف كمستلم لتقارير هذا العميل. للاستفسار أو لإيقاف هذه الرسائل راسلنا على",
+    whyShort: "وصلك هذا البريد لأنك مُضاف كمستلم لتقارير هذا العميل.",
+    unsubscribe: "إيقاف هذه الرسائل",
+    questions: "للاستفسار راسلنا على",
     subject: (client: string, from: string, to: string) => `تقرير أداء ${client}: ${from} إلى ${to}`,
     range: (from: string, to: string) => `من ${from} إلى ${to}`,
   },
@@ -65,6 +70,9 @@ const T = {
     shareValid: (d: number) => `The link works for ${d} days and needs no account.`,
     trust: "Every figure in this report comes from the ad platform's own data and is checked against its totals.",
     why: "You received this because you were added as a report recipient for this client. For questions, or to stop these emails, write to",
+    whyShort: "You received this because you were added as a report recipient for this client.",
+    unsubscribe: "Unsubscribe from these emails",
+    questions: "Questions? Write to",
     subject: (client: string, from: string, to: string) => `${client} performance report: ${from} to ${to}`,
     range: (from: string, to: string) => `${from} to ${to}`,
   },
@@ -137,7 +145,15 @@ export function renderReportEmail(input: ReportEmailInput): RenderedEmail {
       + (input.shareUrl ? `<p style="margin:0 0 20px;font-size:12px;color:#56606b">${isolate(t.shareValid(input.shareDays ?? 30))}</p>` : "")
     : "";
   if (target) textLines.push(`${label}: ${target}`, "");
-  textLines.push(t.trust, `${t.why} ${input.contactEmail}`, "GLIO · glioagency.org");
+  if (input.unsubscribeUrl) {
+    textLines.push(t.trust, t.whyShort, `${t.unsubscribe}: ${input.unsubscribeUrl}`, `${t.questions} ${input.contactEmail}`, "GLIO · glioagency.org");
+  } else {
+    textLines.push(t.trust, `${t.why} ${input.contactEmail}`, "GLIO · glioagency.org");
+  }
+  const mail = `<a href="mailto:${escapeHtml(input.contactEmail)}" style="color:#2563eb">${escapeHtml(input.contactEmail)}</a>`;
+  const footer = input.unsubscribeUrl
+    ? `${escapeHtml(t.whyShort)} <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#2563eb">${escapeHtml(t.unsubscribe)}</a>.<br>${escapeHtml(t.questions)} ${mail}`
+    : `${escapeHtml(t.why)} ${mail}`;
 
   const html = `<!DOCTYPE html>
 <html lang="${lang}" dir="${dir}">
@@ -156,7 +172,7 @@ export function renderReportEmail(input: ReportEmailInput): RenderedEmail {
 <h2 style="margin:28px 0 0;font-size:17px">${escapeHtml(t.figures)}</h2>
 ${sections}
 ${button}
-<p style="margin:28px 0 0;font-size:12px;color:#56606b;line-height:1.6">${isolate(t.trust)}<br>${escapeHtml(t.why)} <a href="mailto:${escapeHtml(input.contactEmail)}" style="color:#2563eb">${escapeHtml(input.contactEmail)}</a></p>
+<p style="margin:28px 0 0;font-size:12px;color:#56606b;line-height:1.6">${isolate(t.trust)}<br>${footer}</p>
 </td></tr>
 <tr><td style="padding:16px 28px;background:#f8fafc;color:#56606b;font-size:12px;text-align:${align}">GLIO · <a href="https://www.glioagency.org" style="color:#56606b">glioagency.org</a></td></tr>
 </table></td></tr></table>

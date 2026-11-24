@@ -18,6 +18,10 @@ describe("Supabase Auth email links", () => {
 
   it("the confirm page is reachable without signing in", () => {
     expect(isPublicPath("/auth/confirm")).toBe(true);
+    // Unsubscribe page and one-click endpoint work without an account; nothing else under similar names does.
+    expect(isPublicPath("/u/abc")).toBe(true);
+    expect(isPublicPath("/api/unsubscribe/abc")).toBe(true);
+    expect(isPublicPath("/users")).toBe(false);
   });
 
   it.each([

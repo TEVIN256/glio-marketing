@@ -9,3 +9,4 @@ export * from "./mailer.ts";
 export * from "./deliver.ts";
 export * from "./notify.ts";
 export * from "./shares.ts";
+export * from "./unsubscribe.ts";

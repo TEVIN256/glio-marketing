@@ -7,6 +7,7 @@ import { PAGE_1, PAGE_2, tiktokAccountTotals } from "../../connectors/test/fixtu
 import {
   type ChannelTotals, type MailFetch, type MailMessage, type Mailer, MailError, ResendMailer, buildReport, deliverReport,
   hashShareToken, isoWeekday, latestScheduledRun, openShare, createShare, normalizeRecipients, renderReportEmail, runScheduledReports, scheduledRunIfDue,
+  findUnsubscribeLink, resubscribe, unsubscribe,
 } from "../src/index.ts";
 
 /**
@@ -50,6 +51,18 @@ describe("renderReportEmail", () => {
     expect(email.subject).not.toMatch(/[\r\n]/);
   });
 
+  it("with an unsubscribe link: one in the footer and in the text version; without: the old 'write to us' line", () => {
+    const withLink = renderReportEmail({
+      report, commentary, clientName: "Test Client A1", lang: "en", contactEmail: "info@example.test", unsubscribeUrl: "https://app.example.test/u/abc",
+    });
+    expect(withLink.html).toContain('href="https://app.example.test/u/abc"');
+    expect(withLink.html).toContain("Unsubscribe from these emails");
+    expect(withLink.text).toContain("Unsubscribe from these emails: https://app.example.test/u/abc");
+    const without = renderReportEmail({ report, commentary, clientName: "Test Client A1", lang: "ar", contactEmail: "info@example.test" });
+    expect(without.html).not.toContain("/u/");
+    expect(without.html).toContain("لإيقاف هذه الرسائل");
+  });
+
   it("isolates numbers inside Arabic text", () => {
     const email = renderReportEmail({ report, commentary, clientName: "Test Client A1", lang: "ar", contactEmail: "info@example.test" });
     expect(email.html).toContain('<span dir="ltr" style="unicode-bidi:isolate">337.89</span>');
@@ -69,6 +82,16 @@ describe("ResendMailer", () => {
     expect(calls[0]!.url).toBe("https://api.resend.com/emails");
     expect(calls[0]!.init.headers).toMatchObject({ Authorization: `Bearer ${KEY}`, "Idempotency-Key": "k1" });
     expect(JSON.parse(calls[0]!.init.body)).toMatchObject({ to: ["a@example.test"], reply_to: "info@example.test", subject: "S" });
+  });
+
+  it("passes extra headers (List-Unsubscribe) through", async () => {
+    let body: Record<string, unknown> = {};
+    const mailer = new ResendMailer(KEY, async (_url, init) => {
+      body = JSON.parse(init.body);
+      return { status: 200, json: async () => ({ id: "msg_h" }) };
+    });
+    await mailer.send({ from: "f@example.test", to: "a@example.test", subject: "S", html: "h", text: "t", headers: { "List-Unsubscribe": "<https://example.test/u>" } });
+    expect(body.headers).toEqual({ "List-Unsubscribe": "<https://example.test/u>" });
   });
 
   it("reports failures with a code, never with the key or the response body", async () => {
@@ -249,7 +272,7 @@ describe("scheduled report delivery (M6)", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(Object.keys(rows[0]!).sort()).toEqual([
       "client_id", "created_at", "error_code", "id", "period_from", "period_to", "provider", "provider_message_id",
-      "recipient", "sent_by", "snapshot_id", "status", "trigger", "workspace_id",
+      "recipient", "sent_by", "snapshot_id", "status", "trigger", "unsubscribe_token_hash", "workspace_id",
     ]);
   });
 });
@@ -284,3 +307,73 @@ describe("report share links", () => {
   });
 });
 
+
+describe("one-click unsubscribe (migration 0012)", () => {
+  const linkOf = (m: MailMessage) => m.html.match(/https:\/\/app\.example\.test\/u\/([A-Za-z0-9_-]{43})/)![1]!;
+  const manual = (mailer: Mailer) => deliverReport(deps(mailer), {
+    clientId, period: { from: "2026-01-01", to: "2026-01-03" }, recipients: ["owner-e1@example.test", "client-e1@example.test"],
+    language: "ar", trigger: "manual", sentBy: owner,
+  });
+  const auditCount = async (action: string) =>
+    (await db.as(superuser, (q) => q("select count(*)::int as n from audit_log where action = $1", [action])))[0]!.n;
+  let clientToken = "";
+  let ownerToken = "";
+
+  it("every email has its own link, in the footer and as a one-click List-Unsubscribe header; only its hash is stored", async () => {
+    const mailer = new FakeMailer();
+    await manual(mailer);
+    const [toOwner, toClient] = mailer.sent;
+    ownerToken = linkOf(toOwner!);
+    clientToken = linkOf(toClient!);
+    expect(ownerToken).not.toBe(clientToken);
+    expect(toClient!.headers).toEqual({
+      "List-Unsubscribe": `<https://app.example.test/api/unsubscribe/${clientToken}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+    const [row] = await db.as(superuser, (q) => q("select recipient from report_deliveries where unsubscribe_token_hash = $1", [hashShareToken(clientToken)]));
+    expect(row!.recipient).toBe("client-e1@example.test");
+    expect(await findUnsubscribeLink(exec, clientToken)).toMatchObject({ email: "client-e1@example.test", clientName: "Test Client E1", unsubscribed: false });
+  });
+
+  it("unsubscribing is idempotent and audited once; made-up links do nothing", async () => {
+    expect(await unsubscribe(exec, clientToken, "one-click")).toMatchObject({ unsubscribed: true });
+    expect(await unsubscribe(exec, clientToken, "page")).toMatchObject({ unsubscribed: true });
+    expect(await auditCount("report.unsubscribed")).toBe(1);
+    expect(await unsubscribe(exec, "x".repeat(43), "page")).toBeNull();
+    expect(await findUnsubscribeLink(exec, "not-a-token")).toBeNull();
+  });
+
+  it("manual and scheduled sends skip the unsubscribed address", async () => {
+    const mailer = new FakeMailer();
+    const r = await manual(mailer);
+    expect(r.unsubscribed).toEqual(["client-e1@example.test"]);
+    expect(mailer.sent.map((m) => m.to)).toEqual(["owner-e1@example.test"]);
+    const scheduled = new FakeMailer();
+    await runScheduledReports(deps(scheduled), "2026-01-11");
+    expect(scheduled.sent.map((m) => m.to)).toEqual(["owner-e1@example.test"]);
+  });
+
+  it("the team sees who unsubscribed but can't add or remove anyone", async () => {
+    expect(await db.as(user(owner), (q) => q("select email from report_unsubscribes"))).toEqual([{ email: "client-e1@example.test" }]);
+    await expect(db.as(user(owner), (q) => q("delete from report_unsubscribes"))).rejects.toThrow(/permission denied/);
+    await expect(db.as(user(owner), (q) => q(
+      "insert into report_unsubscribes (workspace_id, client_id, email) values ($1, $2, 'owner-e1@example.test')", [wsId, clientId]))).rejects.toThrow(/permission denied/);
+  });
+
+  it("the same link subscribes again", async () => {
+    expect(await resubscribe(exec, clientToken)).toMatchObject({ unsubscribed: false });
+    expect(await auditCount("report.resubscribed")).toBe(1);
+    const mailer = new FakeMailer();
+    await manual(mailer);
+    expect(mailer.sent.map((m) => m.to)).toEqual(["owner-e1@example.test", "client-e1@example.test"]);
+  });
+
+  it("when everyone unsubscribed, the scheduled run doesn't even refresh the data", async () => {
+    await unsubscribe(exec, clientToken, "page");
+    await unsubscribe(exec, ownerToken, "page");
+    let refreshed = false;
+    const out = await runScheduledReports({ ...deps(new FakeMailer()), refresh: async () => { refreshed = true; } }, "2026-01-18");
+    expect(out).toMatchObject([{ status: "all_unsubscribed", sent: 0 }]);
+    expect(refreshed).toBe(false);
+  });
+});

@@ -16,6 +16,8 @@ export interface MailMessage {
   replyTo?: string;
   /** Same key = same email: lets a retried request not send twice. */
   idempotencyKey?: string;
+  /** Extra mail headers, e.g. List-Unsubscribe (RFC 8058). */
+  headers?: Record<string, string>;
 }
 
 export interface Mailer {
@@ -52,7 +54,10 @@ export class ResendMailer implements Mailer {
       res = await this.fetchImpl(RESEND_EMAILS_URL, {
         method: "POST",
         headers,
-        body: JSON.stringify({ from: m.from, to: [m.to], subject: m.subject, html: m.html, text: m.text, reply_to: m.replyTo }),
+        body: JSON.stringify({
+          from: m.from, to: [m.to], subject: m.subject, html: m.html, text: m.text, reply_to: m.replyTo,
+          ...(m.headers ? { headers: m.headers } : {}),
+        }),
       });
     } catch {
       throw new MailError("Could not reach Resend", "RESEND_NETWORK", true);

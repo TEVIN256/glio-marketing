@@ -204,7 +204,7 @@ export async function sendReportNow(formData: FormData) {
       },
       { clientId: client, period: { from, to }, recipients, language: schedule?.language === "en" ? "en" : "ar", trigger: "manual", sentBy: access.user.id },
     );
-    outcome = `mail=sent&n=${result.sent.length}&f=${result.failed.length}`
+    outcome = `mail=sent&n=${result.sent.length}&f=${result.failed.length}&u=${result.unsubscribed.length}`
       + (result.failed[0] ? `&code=${encodeURIComponent(result.failed[0].code)}` : "");
   } catch (err) {
     const d = describeError(err);

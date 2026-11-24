@@ -1,6 +1,6 @@
-import { COMPANY, type SiteText } from "@/lib/site";
+import { COMPANY, type SiteText, fill } from "@/lib/site";
 
-/** Public site footer: brand, email, CR number, legal links. The legal entity name is not shown (owner's choice). */
+/** Public site footer: brand and the legal entity that owns it, CR number, email, legal links. */
 export function SiteFooter({ lang, s }: { lang: "ar" | "en"; s: SiteText }) {
   const year = new Date().getUTCFullYear();
   return (
@@ -12,7 +12,7 @@ export function SiteFooter({ lang, s }: { lang: "ar" | "en"; s: SiteText }) {
         <a href={`mailto:${COMPANY.email}`} dir="ltr">{COMPANY.email}</a>
       </nav>
       <p className="muted">
-        © <span className="num">{year}</span> {lang === "ar" ? COMPANY.tradeNameAr : COMPANY.tradeNameEn} · {COMPANY.country[lang]}
+        © <span className="num">{year}</span> {lang === "ar" ? COMPANY.tradeNameAr : COMPANY.tradeNameEn}{lang === "ar" ? "،" : ","} <bdi>{fill(s.footerBrandOf, lang)}</bdi> · {COMPANY.country[lang]}
         {COMPANY.crNumber && (
           <>
             {" "}· {s.contactCr} <span className="num">{COMPANY.crNumber}</span>

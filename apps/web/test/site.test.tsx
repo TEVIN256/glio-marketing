@@ -63,15 +63,19 @@ describe("home page content", () => {
   });
 });
 
-describe("brand only, email only", () => {
-  it("no public text shows the legal entity name or a phone number (owner's choice)", () => {
+describe("brand and legal entity, email only", () => {
+  it("the footer, about, privacy and terms name the legal entity and CR next to the brand; no phone number", () => {
     expect(COMPANY.phone).toBeNull();
     for (const lang of ["ar", "en"] as const) {
-      const all = strings(site[lang]).map((x) => fill(x, lang)).join("\n")
-        + renderToStaticMarkup(<SiteFooter lang={lang} s={site[lang]} />);
-      expect(all).not.toContain(COMPANY.legalNameEn);
-      expect(all).not.toContain(COMPANY.legalNameAr);
-      expect(all).not.toContain("Sutoor");
+      const legal = lang === "ar" ? COMPANY.legalNameAr : COMPANY.legalNameEn;
+      const footer = renderToStaticMarkup(<SiteFooter lang={lang} s={site[lang]} />);
+      expect(footer).toContain(legal);
+      expect(footer).toContain(COMPANY.crNumber!);
+      for (const text of [site[lang].aboutText, site[lang].privacyIntro, site[lang].termsIntro]) {
+        expect(fill(text, lang)).toContain(legal);
+        expect(fill(text, lang)).toContain(COMPANY.crNumber!);
+        expect(fill(text, lang)).not.toMatch(/\{\w+\}/);
+      }
     }
   });
 });

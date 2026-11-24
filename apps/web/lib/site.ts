@@ -1,8 +1,9 @@
 /**
  * The public company website (glioagency.org): home, privacy policy, terms.
  * Company facts live in COMPANY; a field left null is not shown anywhere.
- * The public brand is "Glio" only: the owner chose not to show the legal entity
- * name on the website (legalName* is kept for platform applications, not rendered).
+ * The public brand is "GLIO"; the legal entity that owns it is named next to it
+ * (footer, about, privacy and terms), so platforms (e.g. TikTok's developer review)
+ * and readers can match the brand, domain and Commercial Registration.
  * Contact is email only (owner's choice): phone stays null.
  * Text is Arabic-first with an English version; both must have the same shape (tested).
  */
@@ -24,7 +25,7 @@ export const COMPANY = {
   crNumber: "7042386917" as string | null,
 } as const;
 
-export const POLICY_UPDATED = "2026-11-24";
+export const POLICY_UPDATED = "2026-11-25";
 
 type Section = { heading: string; paragraphs: string[]; bullets?: string[] };
 
@@ -105,13 +106,14 @@ export const site = {
     ],
     aboutTitle: "من نحن",
     aboutText:
-      "غليو وكالة تسويق رقمي سعودية. نبني منصة غليو لتسهيل تشغيل الإعلانات ومتابعتها وإعداد تقاريرها للشركات والوكالات السعودية.",
+      "غليو علامة تجارية تابعة لـ{legalName} (سجل تجاري {cr})، وكالة تسويق رقمي سعودية. نبني منصة غليو لتسهيل تشغيل الإعلانات ومتابعتها وإعداد تقاريرها للشركات والوكالات السعودية.",
     contactTitle: "تواصل معنا",
     contactEmail: "البريد الإلكتروني",
     contactPhone: "الهاتف",
     contactCity: "المدينة",
     contactCr: "رقم السجل التجاري",
     footerRights: "جميع الحقوق محفوظة",
+    footerBrandOf: "علامة تجارية تابعة لـ{legalName}",
     updated: "آخر تحديث",
     demoKicker: "03 / عرض توضيحي",
     demoTitle: "اطلب عرضًا توضيحيًا",
@@ -121,7 +123,7 @@ export const site = {
     demoBody: "الشركة:\nالموقع الإلكتروني:\nالمنصات الإعلانية:\nالميزانية الشهرية التقريبية:\n",
     privacyTitle: "سياسة الخصوصية",
     privacyIntro:
-      "توضح هذه السياسة كيف تجمع {tradeName} البيانات وتستخدمها وتحميها عند استخدام موقع {domain} ومنصة غليو، وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية.",
+      "توضح هذه السياسة كيف تجمع {tradeName} ({legalName}، سجل تجاري {cr}) البيانات وتستخدمها وتحميها عند استخدام موقع {domain} ومنصة غليو، وفق نظام حماية البيانات الشخصية في المملكة العربية السعودية.",
     privacy: [
       {
         heading: "البيانات التي نجمعها",
@@ -185,7 +187,7 @@ export const site = {
     ] as Section[],
     termsTitle: "الشروط والأحكام",
     termsIntro:
-      "تنظّم هذه الشروط استخدامك لموقع {domain} ومنصة غليو المقدَّمة من {tradeName}. باستخدامك الخدمة فإنك توافق على هذه الشروط.",
+      "تنظّم هذه الشروط استخدامك لموقع {domain} ومنصة غليو المقدَّمة من {tradeName} ({legalName}، سجل تجاري {cr}). باستخدامك الخدمة فإنك توافق على هذه الشروط.",
     terms: [
       {
         heading: "الخدمة",
@@ -309,13 +311,14 @@ export const site = {
     ],
     aboutTitle: "About us",
     aboutText:
-      "Glio is a Saudi digital marketing agency. We are building the Glio platform to make running, monitoring and reporting on ads easier for Saudi businesses and agencies.",
+      "GLIO is a trading name of {legalName} (Commercial Registration {cr}), a Saudi digital marketing agency. We are building the Glio platform to make running, monitoring and reporting on ads easier for Saudi businesses and agencies.",
     contactTitle: "Contact us",
     contactEmail: "Email",
     contactPhone: "Phone",
     contactCity: "City",
     contactCr: "Commercial Registration No.",
     footerRights: "All rights reserved",
+    footerBrandOf: "a trading name of {legalName}",
     updated: "Last updated",
     demoKicker: "03 / Demo",
     demoTitle: "Ask for a demo",
@@ -325,7 +328,7 @@ export const site = {
     demoBody: "Company:\nWebsite:\nAd platforms:\nApproximate monthly budget:\n",
     privacyTitle: "Privacy policy",
     privacyIntro:
-      "This policy explains how {tradeName} collects, uses and protects data when you use {domain} and the Glio platform, in line with the Saudi Personal Data Protection Law (PDPL).",
+      "This policy explains how {tradeName} ({legalName}, Commercial Registration {cr}) collects, uses and protects data when you use {domain} and the Glio platform, in line with the Saudi Personal Data Protection Law (PDPL).",
     privacy: [
       {
         heading: "Data we collect",
@@ -389,7 +392,7 @@ export const site = {
     ] as Section[],
     termsTitle: "Terms of service",
     termsIntro:
-      "These terms govern your use of {domain} and the Glio platform provided by {tradeName}. By using the service you agree to these terms.",
+      "These terms govern your use of {domain} and the Glio platform provided by {tradeName} ({legalName}, Commercial Registration {cr}). By using the service you agree to these terms.",
     terms: [
       {
         heading: "The service",
@@ -441,11 +444,12 @@ export const site = {
 
 export type SiteText = (typeof site)["en"];
 
-/** Fill {legalName}, {tradeName}, {domain}, {email} and {country} for the given language. */
+/** Fill {legalName}, {tradeName}, {cr}, {domain}, {email} and {country} for the given language. */
 export function fill(text: string, lang: "ar" | "en"): string {
   const values: Record<string, string> = {
     legalName: lang === "ar" ? COMPANY.legalNameAr : COMPANY.legalNameEn,
     tradeName: lang === "ar" ? COMPANY.tradeNameAr : COMPANY.tradeNameEn,
+    cr: COMPANY.crNumber ?? "",
     domain: COMPANY.domain,
     email: COMPANY.email,
     country: COMPANY.country[lang],

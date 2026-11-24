@@ -2,9 +2,9 @@
  * Sending email. `Mailer` is what the report delivery needs; `ResendMailer`
  * is the production implementation over Resend's HTTP API (no SDK dependency).
  *
- * TODO(verify) against Resend's API reference before the first real send:
- * endpoint, request fields (from, to, subject, html, text, reply_to), the
- * `Idempotency-Key` header, and that the response body carries `id`.
+ * In production since 2026-11-22 (report emails delivered, message ids logged).
+ * Request fields: from, to, subject, html, text, reply_to and optional headers
+ * (List-Unsubscribe); `Idempotency-Key` header; the response carries `id`.
  */
 
 export interface MailMessage {

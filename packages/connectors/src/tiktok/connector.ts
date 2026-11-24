@@ -4,8 +4,8 @@ import {
 } from "../types.ts";
 import {
   TIKTOK_ADVERTISER_GET_PATH, TIKTOK_ADVERTISER_INFO_FIELDS, TIKTOK_ADVERTISER_INFO_MAX_IDS, TIKTOK_ADVERTISER_INFO_PATH,
-  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_REPORT_PATH, TIKTOK_TOKEN_PATH,
-  accountTotalsParams, campaignDailyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
+  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_TOKEN_PATH,
+  accountTotalsParams, isNoValue, campaignDailyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
   type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.ts";
 
@@ -43,7 +43,7 @@ export class TikTokConnector implements ReportingConnector {
   /** URL to send the business owner to, to approve Glio on TikTok. */
   static authorizationUrl(args: { appId: string; redirectUri: string; state: string }): string {
     const url = new URL(TIKTOK_AUTH_URL);
-    url.searchParams.set("app_id", args.appId); // TODO(verify) parameter names
+    url.searchParams.set("app_id", args.appId);
     url.searchParams.set("redirect_uri", args.redirectUri);
     url.searchParams.set("state", args.state);
     return url.toString();
@@ -123,7 +123,8 @@ export class TikTokConnector implements ReportingConnector {
       throw new PlatformError(`TikTok account totals returned ${data.list.length} rows, expected 1`, "tiktok", "bad_shape", false);
     }
     // No row: we don't assume it means zero. Reconciliation decides what an
-    // empty answer means. TODO(verify) TikTok's behaviour for inactive ranges.
+    // empty answer means. TODO(verify) on a real account: TikTok doesn't document whether an
+    // inactive range returns no row or a row of zeros / "-" (both are handled).
     const m = data.list[0]?.metrics ?? {};
     return {
       endpoint: TIKTOK_REPORT_PATH,
@@ -180,9 +181,9 @@ export class TikTokConnector implements ReportingConnector {
       throw new PlatformError(`TikTok ${path} returned an unexpected body`, "tiktok", "bad_shape", false);
     }
     if (body.code !== 0) {
-      // TODO(verify): mark TikTok's rate-limit / transient business codes as retryable.
       throw new PlatformError(
-        `TikTok ${path} error ${body.code}: ${sanitize(body.message, secrets)}`, "tiktok", `tiktok_${body.code}`, false,
+        `TikTok ${path} error ${body.code}: ${sanitize(body.message, secrets)}`, "tiktok", `tiktok_${body.code}`,
+        TIKTOK_RETRYABLE_CODES.has(body.code),
       );
     }
     return body;
@@ -241,12 +242,12 @@ function timezoneOrNull(v: unknown): string | null {
 }
 
 function decimalOrNull(v: unknown): string | null {
-  if (v === null || v === undefined || v === "") return null;
+  if (isNoValue(v)) return null;
   return String(v);
 }
 
 function integerOrNull(v: unknown): number | null {
-  if (v === null || v === undefined || v === "") return null;
+  if (isNoValue(v)) return null;
   const n = Number(v);
   if (!Number.isSafeInteger(n) || n < 0) {
     throw new PlatformError(`TikTok returned a non-integer count: ${String(v)}`, "tiktok", "bad_number", false);

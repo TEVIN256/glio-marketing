@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   if (!pending) return go("/app?e=tiktok_state");
 
   const base = `/w/${pending.ws}/c/${pending.client}`;
-  const authCode = params.get("auth_code") ?? params.get("code"); // TODO(verify) parameter name
+  const authCode = params.get("auth_code") ?? params.get("code"); // TikTok sends both; auth_code is the documented one
   if (!authCode) return go(`${base}?e=tiktok&code=TIKTOK_CANCELLED`);
 
   const access = await clientAccess(pending.ws, pending.client);

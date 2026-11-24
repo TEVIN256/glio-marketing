@@ -138,7 +138,8 @@ Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one 
 - **Before the first real connection:**
   1. Check Vault in the Supabase SQL editor: `select exists (select 1 from pg_extension where extname = 'supabase_vault') as vault_on;` expect `true`. If `false`, enable it under Database → Extensions (supabase_vault). **Checked 2026-11-22 on the Frankfurt project: `true`.**
   2. Add `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (Secret) in Vercel, then redeploy.
-  3. Connect one real account, sync a short period, and compare the dashboard with TikTok Ads Manager. Then resolve every `TODO(verify)` in `packages/connectors/src/tiktok/api.ts` and replace the fixtures with an anonymised real response.
+  3. Connect one real account, sync a short period, and compare the dashboard with TikTok Ads Manager (spend, impressions, clicks, conversions per day; the reconciliation badge should say "Matches the platform"). The API details were checked against TikTok's docs on 2026-11-25 (ADR-028); the two remaining `TODO(verify)` items in `packages/connectors/src/tiktok/api.ts` (totals row for an inactive range, advertiser/info id limit) are settled on this first account.
+- TikTok error codes: `tiktok_40001`/`40102`/`40104`/`40105`/`40106` = authorisation expired or revoked (connect again); `tiktok_40016`/`40100`/`40133`/`5xxxx`/`60001` = throttled or TikTok down (retried, then try later); `tiktok_40119` = developer and advertiser not the same company.
 - Error codes on the client page: `TIKTOK_NOT_CONFIGURED` (Vercel variables missing), `TIKTOK_CANCELLED` (not approved on TikTok), `TIKTOK_NO_ACCOUNTS`, `3F000` / `42883` (Vault not enabled), `tiktok_<n>` (TikTok API error code).
 
 ## Apply migrations to Supabase

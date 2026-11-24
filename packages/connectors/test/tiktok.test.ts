@@ -28,6 +28,10 @@ describe("TikTokConnector.fetchDailyReportPage", () => {
     expect(JSON.stringify(page.requestParams)).not.toContain(TOKEN);
     expect(new URL(call.url).searchParams.get("advertiser_id")).toBe("test-advertiser-1");
     expect(JSON.parse(new URL(call.url).searchParams.get("dimensions")!)).toEqual(["campaign_id", "stat_time_day"]);
+    // Deleted campaigns are included, so campaign rows add up to the account totals.
+    expect(JSON.parse(new URL(call.url).searchParams.get("filtering")!)).toEqual([
+      { field_name: "campaign_status", filter_type: "IN", filter_value: '["STATUS_ALL"]' },
+    ]);
 
     expect(page.payload).toBe(PAGE_1); // stored exactly as received
     expect(page.hashBasis).not.toHaveProperty("request_id"); // fingerprint ignores the per-call id
@@ -50,7 +54,7 @@ describe("TikTokConnector.fetchDailyReportPage", () => {
     const body = structuredClone(PAGE_1);
     const first = body.data.list[0]!;
     delete (first.metrics as Record<string, unknown>)["conversion"];
-    (first.metrics as Record<string, unknown>)["clicks"] = "";
+    (first.metrics as Record<string, unknown>)["clicks"] = "-"; // TikTok's "no value"
     const { fetch } = fakeFetch([{ status: 200, body }]);
     const page = await new TikTokConnector({ fetch }).fetchDailyReportPage(request);
     expect(page.rows[0]!.conversions).toBeNull();
@@ -63,6 +67,14 @@ describe("TikTokConnector.fetchDailyReportPage", () => {
       const err = await new TikTokConnector({ fetch }).fetchDailyReportPage(request).catch((e) => e);
       expect(err).toBeInstanceOf(PlatformError);
       expect(err.retryable).toBe(true);
+    }
+  });
+
+  it("marks TikTok's throttling and system error codes as retryable, other codes not", async () => {
+    for (const [code, retryable] of [[40100, true], [40133, true], [50000, true], [60001, true], [40105, false], [40002, false]] as const) {
+      const { fetch } = fakeFetch([{ status: 200, body: { code, message: "x", data: {} } }]);
+      const err = await new TikTokConnector({ fetch }).fetchDailyReportPage(request).catch((e) => e);
+      expect([err.code, err.retryable]).toEqual([`tiktok_${code}`, retryable]);
     }
   });
 

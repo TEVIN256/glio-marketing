@@ -1,8 +1,8 @@
 /**
- * SYNTHETIC TikTok report pages for tests. Shaped after the v1.3 reporting
- * response as remembered (see TODO(verify) in src/tiktok/api.ts). IDs and
- * names are obviously fake. Replace with an anonymised real response once
- * TikTok API access is approved.
+ * SYNTHETIC TikTok report pages for tests, shaped after the documented v1.3
+ * reporting response (checked 2026-11-25, see src/tiktok/api.ts). IDs and
+ * names are obviously fake. Compare with an anonymised real response once a
+ * real account is connected.
  */
 
 type Row = { campaign: string; name: string; day: string; spend: string; impressions: string; clicks: string; conversion: string };

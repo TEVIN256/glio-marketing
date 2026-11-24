@@ -17,7 +17,7 @@ import { ERROR_HINTS } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
 import { connectTikTok, generateReport, loadDemoData, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
-import { saveGuardrails } from "../../approvals/actions";
+import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -44,7 +44,7 @@ export default async function ClientDashboard({
   const base = `/w/${ws}/c/${client}`;
   const keepRange: Record<string, string> = activePreset ? { p: activePreset } : { from: period.from, to: period.to };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -56,7 +56,14 @@ export default async function ClientDashboard({
       .eq("client_id", client).order("created_at", { ascending: false }).limit(5),
     supabase.from("approval_requests").select("ad_account_id, target_id, expires_at").eq("client_id", client).eq("status", "pending"),
     supabase.from("client_guardrails").select("max_daily_budget_minor, max_budget_increase_pct").eq("client_id", client).maybeSingle(),
+    supabase.from("suggestion_settings")
+      .select("enabled, pause_min_spend_major, high_cpa_pct, low_cpa_pct, min_conversions_for_cut, min_conversions_for_raise, step_pct")
+      .eq("client_id", client).maybeSingle(),
   ]);
+  const sg = sgSettings ?? {
+    enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
+    min_conversions_for_cut: 3, min_conversions_for_raise: 10, step_pct: 20,
+  };
   const pendingKeys = new Set((pendingRows ?? [])
     .filter((p) => !p.expires_at || new Date(p.expires_at).getTime() > Date.now())
     .map((p) => `${p.ad_account_id}:${p.target_id}`));
@@ -115,6 +122,8 @@ export default async function ClientDashboard({
         <p className="notice" role="status">{t.apResult_requested} <a href={`/w/${ws}/approvals`}>{t.navApprovals}</a></p>
       )}
       {q.ap === "guardrails" && <p className="notice" role="status">{t.guardrailsSaved}</p>}
+      {q.ap === "sg_settings" && <p className="notice" role="status">{t.sgSettingsSaved}</p>}
+      {q.e === "sg_settings" && <p className="notice error" role="alert">{t.sgSettingsInvalid}</p>}
       {q.e === "budget" && <p className="notice error" role="alert">{t.budgetInvalid}</p>}
       {q.e === "approval" && (
         <p className="notice error" role="alert">
@@ -361,6 +370,57 @@ export default async function ClientDashboard({
             <dd>{guardrails?.max_daily_budget_minor ? <span className="num">{formatMoney(String(guardrails.max_daily_budget_minor), guardCurrency, lang)}</span> : t.noLimit}</dd>
             <dt>{t.maxIncrease}</dt>
             <dd><span className="num">{guardrails?.max_budget_increase_pct ?? 50}%</span></dd>
+          </dl>
+        )}
+      </section>
+
+      <section id="suggestions" className="card stack" aria-labelledby="sg-h">
+        <div className="card-head">
+          <h2 id="sg-h">✦ {t.sgSettingsTitle}</h2>
+          <span className={`badge ${sg.enabled ? "ok" : "other"}`}>{sg.enabled ? t.sgOn : t.sgOff}</span>
+        </div>
+        <p className="muted" style={{ margin: 0 }}>{t.sgSettingsSub}</p>
+        {access.canManage ? (
+          <form className="sg-form" action={saveSuggestionSettings}>
+            <input type="hidden" name="ws" value={ws} />
+            <input type="hidden" name="client" value={client} />
+            <label className="sg-toggle"><input type="checkbox" name="enabled" defaultChecked={sg.enabled} /> {t.sgEnabled}</label>
+            <div className="sg-grid">
+              <div>
+                <label htmlFor="sg-pause">{t.sgPauseLabel} <span className="muted">({guardCurrency})</span></label>
+                <input id="sg-pause" name="pause_min_spend_major" type="number" min={10} max={1000000} dir="ltr" defaultValue={sg.pause_min_spend_major} />
+              </div>
+              <div>
+                <label htmlFor="sg-high">{t.sgHighLabel}</label>
+                <input id="sg-high" name="high_cpa_pct" type="number" min={110} max={500} dir="ltr" defaultValue={sg.high_cpa_pct} />
+              </div>
+              <div>
+                <label htmlFor="sg-low">{t.sgLowLabel}</label>
+                <input id="sg-low" name="low_cpa_pct" type="number" min={10} max={95} dir="ltr" defaultValue={sg.low_cpa_pct} />
+              </div>
+              <div>
+                <label htmlFor="sg-step">{t.sgStepLabel}</label>
+                <input id="sg-step" name="step_pct" type="number" min={5} max={50} dir="ltr" defaultValue={sg.step_pct} />
+              </div>
+              <div>
+                <label htmlFor="sg-mincut">{t.sgMinCutLabel}</label>
+                <input id="sg-mincut" name="min_conversions_for_cut" type="number" min={1} max={1000} dir="ltr" defaultValue={sg.min_conversions_for_cut} />
+              </div>
+              <div>
+                <label htmlFor="sg-minraise">{t.sgMinRaiseLabel}</label>
+                <input id="sg-minraise" name="min_conversions_for_raise" type="number" min={1} max={1000} dir="ltr" defaultValue={sg.min_conversions_for_raise} />
+              </div>
+            </div>
+            <div><button type="submit">{t.save}</button></div>
+          </form>
+        ) : (
+          <dl className="kv">
+            <dt>{t.sgPauseLabel}</dt><dd><span className="num">{sg.pause_min_spend_major}</span> {guardCurrency}</dd>
+            <dt>{t.sgHighLabel}</dt><dd><span className="num">{sg.high_cpa_pct}%</span></dd>
+            <dt>{t.sgLowLabel}</dt><dd><span className="num">{sg.low_cpa_pct}%</span></dd>
+            <dt>{t.sgStepLabel}</dt><dd><span className="num">{sg.step_pct}%</span></dd>
+            <dt>{t.sgMinCutLabel}</dt><dd><span className="num">{sg.min_conversions_for_cut}</span></dd>
+            <dt>{t.sgMinRaiseLabel}</dt><dd><span className="num">{sg.min_conversions_for_raise}</span></dd>
           </dl>
         )}
       </section>

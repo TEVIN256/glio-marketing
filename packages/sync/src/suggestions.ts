@@ -64,6 +64,8 @@ export interface Evidence {
 
 export interface SuggestionOutcome {
   clientId: string;
+  /** Suggestions are switched off for this client (suggestion_settings.enabled = false). */
+  disabled?: boolean;
   created: Array<{ id: string; rule: RuleId; campaignId: string }>;
   skipped: Array<{ campaignId: string; name?: string | null; reason: string }>;
 }
@@ -112,7 +114,12 @@ export async function suggestForClient(
   deps: ExecutorDeps,
   args: { clientId: string; yesterday: string; settings?: RuleSettings },
 ): Promise<SuggestionOutcome> {
-  const s = args.settings ?? DEFAULT_RULES;
+  let s = args.settings ?? DEFAULT_RULES;
+  if (!args.settings) {
+    const loaded = await loadClientRules(deps.db, args.clientId);
+    if (loaded === "disabled") return { clientId: args.clientId, created: [], skipped: [], disabled: true };
+    s = loaded;
+  }
   const window = { from: addDays(args.yesterday, -(LOOKBACK_DAYS - 1)), to: args.yesterday };
   const out: SuggestionOutcome = { clientId: args.clientId, created: [], skipped: [] };
 
@@ -243,6 +250,26 @@ export async function suggestForClient(
     }
   }
   return out;
+}
+
+/** The client's own thresholds (suggestion_settings), or the defaults when it has none. */
+export async function loadClientRules(db: ExecutorDeps["db"], clientId: string): Promise<RuleSettings | "disabled"> {
+  const [r] = await db.query(
+    `select enabled, pause_min_spend_major, high_cpa_pct, low_cpa_pct, min_conversions_for_cut, min_conversions_for_raise, step_pct
+     from public.suggestion_settings where client_id = $1`,
+    [clientId],
+  );
+  if (!r) return DEFAULT_RULES;
+  if (!r.enabled) return "disabled";
+  return {
+    ...DEFAULT_RULES,
+    pauseMinSpendMajor: Number(r.pause_min_spend_major),
+    highCpaPct: Number(r.high_cpa_pct),
+    lowCpaPct: Number(r.low_cpa_pct),
+    minConversionsForCut: Number(r.min_conversions_for_cut),
+    minConversionsForRaise: Number(r.min_conversions_for_raise),
+    stepPct: Number(r.step_pct),
+  };
 }
 
 /** Run the rules for several clients; one client's failure doesn't stop the others. */

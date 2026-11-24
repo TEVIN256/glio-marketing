@@ -98,6 +98,7 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 
 - Daily (step 2 of `/api/cron/daily`) and on demand (Approvals → "Check for suggestions now", owners/managers). Proposals only: they appear on the Approvals page as "GLIO suggestion" and run only after an owner/manager approves, through the same executor and safety limits.
 - Rules on the last 7 complete days (Asia/Riyadh): pause a campaign that spent at least SAR 300 with no conversions; lower the daily budget 20% when cost per conversion is at least 1.5x the client's (3+ conversions); raise it 20% (capped by the safety limits) when at most 0.7x (10+ conversions). CPA rules need at least two campaigns with conversions. Defaults in `DEFAULT_RULES` (`packages/sync/src/suggestions.ts`).
+- Per client (client page → "GLIO suggestions for this client", owners/managers): on/off and every threshold below; no settings row = these defaults (ADR-023).
 - Not repeated while a request is open for the campaign, or for 7 days after a decision on a suggestion for it. Suggestions expire after 72 hours.
 - Demo data: campaigns C (no conversions), D (strong) and E (expensive) trigger the three rules.
 
@@ -232,6 +233,14 @@ select
     and to_regprocedure('public.invitation_preview(text)') is not null                             as functions,        -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                    as policies,         -- expect 41
   not has_table_privilege('authenticated', 'public.invitations', 'delete')                           as no_delete;        -- expect true
+```
+
+### Diagnostic for 20261124000001_suggestion_settings
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'suggestion_settings') as settings_rls, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                         as policies;     -- expect 45
 ```
 
 ## Migration log

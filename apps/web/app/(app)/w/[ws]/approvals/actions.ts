@@ -208,3 +208,36 @@ export async function saveNotifySetting(formData: FormData) {
   redirect(error ? `/w/${ws}/approvals?e=approval&code=${encodeURIComponent(error.code ?? "UNKNOWN")}` : `/w/${ws}/approvals?ns=saved`);
 }
 
+/** Save a client's suggestion settings (owners and managers; RLS enforces it too). */
+export async function saveSuggestionSettings(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden#suggestions`);
+  const int = (name: string, min: number, max: number) => {
+    const n = Number(String(formData.get(name) ?? "").replace(/,/g, ""));
+    return Number.isInteger(n) && n >= min && n <= max ? n : null;
+  };
+  const values = {
+    enabled: formData.get("enabled") === "on",
+    pause_min_spend_major: int("pause_min_spend_major", 10, 1_000_000),
+    high_cpa_pct: int("high_cpa_pct", 110, 500),
+    low_cpa_pct: int("low_cpa_pct", 10, 95),
+    min_conversions_for_cut: int("min_conversions_for_cut", 1, 1000),
+    min_conversions_for_raise: int("min_conversions_for_raise", 1, 1000),
+    step_pct: int("step_pct", 5, 50),
+  };
+  if (Object.values(values).some((v) => v === null)) redirect(`${base}?e=sg_settings#suggestions`);
+  const { error } = await access.supabase.from("suggestion_settings").upsert(
+    { client_id: client, workspace_id: ws, ...values, updated_by: access.user.id, updated_at: new Date().toISOString() },
+    { onConflict: "client_id" },
+  );
+  if (error) redirect(`${base}?e=approval&code=${encodeURIComponent(error.code ?? "UNKNOWN")}#suggestions`);
+  await access.supabase.from("audit_log").insert({
+    workspace_id: ws, actor_kind: "user", actor_user_id: access.user.id, action: "suggestion_settings.updated",
+    entity_type: "client", entity_id: client, metadata: values,
+  });
+  redirect(`${base}?ap=sg_settings#suggestions`);
+}
+

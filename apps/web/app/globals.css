@@ -430,3 +430,9 @@ button.secondary.danger:hover { border-color: var(--bad); color: var(--bad); }
 .resend-form { display: flex; gap: 8px; flex-wrap: wrap; margin-block-start: 10px; }
 .resend-form input { flex: 1; min-width: 200px; }
 .forgot-link { font-size: 0.88rem; margin-inline-start: 12px; }
+.sg-form { display: grid; gap: 14px; }
+.sg-toggle { display: flex; align-items: center; gap: 8px; font-weight: 600; margin: 0; }
+.sg-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.sg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.sg-grid label { font-weight: 500; font-size: 0.88rem; }
+.sg-grid input { width: 160px; }

@@ -120,3 +120,34 @@ describe("suggestion rules v1", () => {
     expect(out.created).toEqual([]);
   });
 });
+
+describe("per-client suggestion settings (migration 0010)", () => {
+  it("switched off: nothing is suggested for that client", async () => {
+    const { client: c } = await demoClient("Test Client SG4");
+    await db.as(user(owner), (q) => q("insert into suggestion_settings (workspace_id, client_id, enabled) values ($1, $2, false)", [ws, c]));
+    const out = await suggestForClient(deps(), { clientId: c, yesterday: WINDOW.to });
+    expect(out).toMatchObject({ disabled: true, created: [] });
+  });
+
+  it("the client's own thresholds are used, and recorded in the evidence", async () => {
+    const { client: c } = await demoClient("Test Client SG5");
+    // Pause only above SAR 100,000 (C never gets there); budget step 10%.
+    await db.as(user(owner), (q) => q(
+      "insert into suggestion_settings (workspace_id, client_id, pause_min_spend_major, step_pct) values ($1, $2, 100000, 10)", [ws, c]));
+    const out = await suggestForClient(deps(), { clientId: c, yesterday: WINDOW.to });
+    expect(out.created.map((x) => x.rule).sort()).toEqual(["cut_budget_high_cpa", "raise_budget_low_cpa"]);
+    const rows = await requests(c);
+    const raise = rows.find((r) => r.target_id === "demo-campaign-d")!;
+    expect(raise.payload.budget_minor).toBe("16500"); // SAR 150 + 10%
+    expect(raise.payload.evidence.thresholds.step_pct).toBe(10);
+  });
+
+  it("analysts and client viewers can't change the settings; values out of range are refused", async () => {
+    const analyst = await db.createUser("analyst-sg@example.test");
+    await db.as(user(owner), (q) => q("insert into memberships (workspace_id, user_id, role) values ($1, $2, 'analyst')", [ws, analyst]));
+    const [c] = await db.as(user(owner), (q) => q("select id from clients where workspace_id = $1 limit 1", [ws]));
+    expect(await db.as(user(analyst), (q) => q("update suggestion_settings set step_pct = 50 where client_id = $1 returning client_id", [c!.id]))).toEqual([]);
+    await expect(db.as(user(owner), (q) => q("update suggestion_settings set step_pct = 90 where client_id = $1", [c!.id]))).rejects.toThrow(/check constraint/);
+  });
+});
+

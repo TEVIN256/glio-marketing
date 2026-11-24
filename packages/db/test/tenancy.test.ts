@@ -46,6 +46,7 @@ beforeAll(async () => {
     for (const cid of [clientA1, clientA2]) {
       await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-a@example.test}')", [wsA, cid]);
       await q("insert into client_guardrails (workspace_id, client_id, max_daily_budget_minor) values ($1, $2, 50000)", [wsA, cid]);
+      await q("insert into suggestion_settings (workspace_id, client_id) values ($1, $2)", [wsA, cid]);
     }
     await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, true)", [wsA, alice]);
     await q("insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'seed-a@example.test', 'analyst', repeat('1', 64), $2)", [wsA, alice]);
@@ -57,6 +58,7 @@ beforeAll(async () => {
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsB, clientB1, bob]);
     await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-b@example.test}')", [wsB, clientB1]);
     await q("insert into client_guardrails (workspace_id, client_id) values ($1, $2)", [wsB, clientB1]);
+    await q("insert into suggestion_settings (workspace_id, client_id, enabled) values ($1, $2, false)", [wsB, clientB1]);
     await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, false)", [wsB, bob]);
     await q("insert into invitations (workspace_id, email, role, token_hash, invited_by) values ($1, 'seed-b@example.test', 'manager', repeat('2', 64), $2)", [wsB, bob]);
   });
@@ -123,7 +125,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(18); // 17 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(19); // 18 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));

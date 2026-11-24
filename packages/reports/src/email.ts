@@ -16,6 +16,9 @@ export interface ReportEmailInput {
   lang: EmailLang;
   /** Link to the snapshot in GLIO (for people with a GLIO account). */
   snapshotUrl?: string;
+  /** Read-only share link (works without a GLIO account); preferred over snapshotUrl. */
+  shareUrl?: string;
+  shareDays?: number;
   /** Who to write to for questions or to stop these emails. */
   contactEmail: string;
 }
@@ -39,6 +42,8 @@ const T = {
     recon: { ok: "مطابق للمنصة", drift: "قيد المطابقة: فرق أكبر من 0.5%", not_comparable: "تعذّرت المقارنة", unchecked: "لم تتم المطابقة بعد" },
     noData: "لا توجد بيانات إعلانية لهذه الفترة.",
     open: "عرض التقرير في GLIO",
+    openShared: "عرض التقرير كاملًا",
+    shareValid: (d: number) => `يعمل الرابط لمدة ${d} يومًا ولا يحتاج إلى حساب.`,
     trust: "كل رقم في هذا التقرير مصدره بيانات المنصة الإعلانية نفسها، ومطابَق مع مجاميعها.",
     why: "وصلك هذا البريد لأنك مُضاف كمستلم لتقارير هذا العميل. للاستفسار أو لإيقاف هذه الرسائل راسلنا على",
     subject: (client: string, from: string, to: string) => `تقرير أداء ${client}: ${from} إلى ${to}`,
@@ -56,6 +61,8 @@ const T = {
     recon: { ok: "Matches the platform", drift: "Being reconciled: difference above 0.5%", not_comparable: "Could not compare", unchecked: "Not reconciled yet" },
     noData: "No advertising data for this period.",
     open: "Open the report in GLIO",
+    openShared: "View the full report",
+    shareValid: (d: number) => `The link works for ${d} days and needs no account.`,
     trust: "Every figure in this report comes from the ad platform's own data and is checked against its totals.",
     why: "You received this because you were added as a report recipient for this client. For questions, or to stop these emails, write to",
     subject: (client: string, from: string, to: string) => `${client} performance report: ${from} to ${to}`,
@@ -123,10 +130,13 @@ export function renderReportEmail(input: ReportEmailInput): RenderedEmail {
     textLines.push(t.noData, "");
   }
 
-  const button = input.snapshotUrl
-    ? `<p style="margin:28px 0"><a href="${escapeHtml(input.snapshotUrl)}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;display:inline-block">${escapeHtml(t.open)}</a></p>`
+  const target = input.shareUrl ?? input.snapshotUrl;
+  const label = input.shareUrl ? t.openShared : t.open;
+  const button = target
+    ? `<p style="margin:28px 0 8px"><a href="${escapeHtml(target)}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;display:inline-block">${escapeHtml(label)}</a></p>`
+      + (input.shareUrl ? `<p style="margin:0 0 20px;font-size:12px;color:#56606b">${isolate(t.shareValid(input.shareDays ?? 30))}</p>` : "")
     : "";
-  if (input.snapshotUrl) textLines.push(`${t.open}: ${input.snapshotUrl}`, "");
+  if (target) textLines.push(`${label}: ${target}`, "");
   textLines.push(t.trust, `${t.why} ${input.contactEmail}`, "GLIO · glioagency.org");
 
   const html = `<!DOCTYPE html>

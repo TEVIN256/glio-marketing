@@ -96,6 +96,10 @@ beforeAll(async () => {
          values ($1, $2, '2026-01-01', '2026-01-01', '{}', repeat('d', 64), $3, 'test') returning id`,
         [a.workspace_id, a.client_id, comm.id]);
       await q(
+        `insert into report_shares (workspace_id, client_id, snapshot_id, token_hash, created_by_label)
+         values ($1, $2, $3::uuid, encode(sha256(convert_to($3::text, 'UTF8')), 'hex'), 'test')`,
+        [a.workspace_id, a.client_id, snap.id]);
+      await q(
         `insert into report_deliveries (workspace_id, client_id, snapshot_id, period_from, period_to, recipient, trigger, status, provider_message_id)
          values ($1, $2, $3, '2026-01-01', '2026-01-01', 'reports@example.test', 'schedule', 'sent', 'test-message')`,
         [a.workspace_id, a.client_id, snap.id]);
@@ -125,7 +129,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(19); // 18 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(20); // 19 tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));
@@ -198,6 +202,7 @@ describe("client_viewer", () => {
       expect((await q("select distinct client_id from ai_commentary")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select client_id from report_schedules")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from report_deliveries")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from report_shares")).map((r) => r.client_id)).toEqual([clientA1]);
     });
   });
 

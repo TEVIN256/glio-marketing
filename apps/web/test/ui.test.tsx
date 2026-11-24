@@ -51,6 +51,13 @@ describe("ReportView", () => {
     expect(en).toContain("Spend");
     expect(en.replace(/<[^>]+>/g, "")).toContain("TikTok spend was SAR 337.89.");
   });
+
+  it("on a shared link (no figureHref): same figures, but no links into GLIO", () => {
+    const shared = renderToStaticMarkup(<ReportView report={report} commentary={commentary} lang="ar" t={dict.ar} />);
+    expect(shared).toContain("337.89 ر.س");
+    expect(shared).not.toContain("<a ");
+    expect(shared).not.toContain(dict.ar.viewSource);
+  });
 });
 
 describe("isolateNumbers", () => {

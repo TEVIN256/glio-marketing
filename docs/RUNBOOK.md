@@ -102,6 +102,12 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - Not repeated while a request is open for the campaign, or for 7 days after a decision on a suggestion for it. Suggestions expire after 72 hours.
 - Demo data: campaigns C (no conversions), D (strong) and E (expensive) trigger the three rules.
 
+## Report share links
+
+- Report page → "Share this report" (owners/managers): a read-only link valid 7, 30 or 90 days, shown once after creating it; the table lists every link with its views and a Revoke button. Report emails carry their own 30-day link (marked "from email" in the table).
+- The link opens `/s/<secret>` without a GLIO account. Expired, revoked or wrong links show "This link isn't available."
+- Audit: `report.shared`, `report.share_revoked`. Views are counted in `report_shares.view_count` / `last_viewed_at`.
+
 ## TikTok Marketing API app
 
 - Developer account on the TikTok for Business developer portal (business-api.tiktok.com/portal), signed in with info@glioagency.org. Developer registration submitted 2026-11-22 (company: the legal name on the CR, website https://www.glioagency.org, location Saudi Arabia, region EMEA, services: Campaign Management, Reporting, Ad Measurement, Accounts).
@@ -241,6 +247,14 @@ select
 select
   (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'suggestion_settings') as settings_rls, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                         as policies;     -- expect 45
+```
+
+### Diagnostic for 20261124000002_report_shares
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'report_shares') as shares_rls, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                   as policies;   -- expect 48
 ```
 
 ## Migration log

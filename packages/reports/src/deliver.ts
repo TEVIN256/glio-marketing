@@ -3,6 +3,7 @@ import type { SqlExecutor } from "@glio/sync";
 import type { CommentaryModel } from "./commentary.ts";
 import { type EmailLang, renderReportEmail } from "./email.ts";
 import type { Mailer } from "./mailer.ts";
+import { SHARE_DAYS_DEFAULT, createShare } from "./shares.ts";
 import { createReportSnapshot } from "./snapshot.ts";
 
 /**
@@ -145,12 +146,16 @@ export async function deliverReport(deps: DeliverDeps, args: DeliverArgs): Promi
     },
   );
   result.snapshotId = snapshot.snapshotId;
+  // One read-only link per delivery, so recipients without a GLIO account can open the full report.
+  const share = await createShare(deps.db, { snapshotId: snapshot.snapshotId, days: SHARE_DAYS_DEFAULT, createdByLabel: "report-email" });
   const email = renderReportEmail({
     report: snapshot.report,
     commentary: { ar: snapshot.commentary.ar, en: snapshot.commentary.en, source: snapshot.commentary.source },
     clientName: client.name,
     lang: args.language,
     snapshotUrl: `${deps.appUrl.replace(/\/$/, "")}/w/${client.workspace_id}/c/${client.id}/r/${snapshot.snapshotId}`,
+    shareUrl: `${deps.appUrl.replace(/\/$/, "")}/s/${share.token}`,
+    shareDays: SHARE_DAYS_DEFAULT,
     contactEmail: deps.replyTo,
   });
 

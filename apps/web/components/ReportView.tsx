@@ -26,7 +26,8 @@ export interface ReportViewProps {
   commentary: { ar: string; en: string; source: "llm" | "template" };
   lang: Lang;
   t: Dict;
-  figureHref: (figureId: string) => string;
+  /** Link from each figure to its provenance page; omit for read-only shared views. */
+  figureHref?: (figureId: string) => string;
 }
 
 export function ReportView({ report, commentary, lang, t, figureHref }: ReportViewProps) {
@@ -64,6 +65,14 @@ export function ReportView({ report, commentary, lang, t, figureHref }: ReportVi
                     <div key={f.id} className="figure" data-figure={f.id}>
                       <div className="figure-label">{label}</div>
                       <div className="figure-missing">{f.status === "not_provided" ? t.notProvided : t.notApplicable}</div>
+                    </div>
+                  );
+                }
+                if (!figureHref) {
+                  return (
+                    <div key={f.id} className="figure" data-figure={f.id}>
+                      <div className="figure-label">{label}</div>
+                      <div className="figure-value"><span className="num">{f.display[lang]}</span></div>
                     </div>
                   );
                 }

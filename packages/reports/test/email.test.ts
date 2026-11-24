@@ -6,7 +6,7 @@ import { InMemorySecretStore, type SqlExecutor, reconcile, runSync } from "@glio
 import { PAGE_1, PAGE_2, tiktokAccountTotals } from "../../connectors/test/fixtures/tiktok-report.ts";
 import {
   type ChannelTotals, type MailFetch, type MailMessage, type Mailer, MailError, ResendMailer, buildReport, deliverReport,
-  isoWeekday, latestScheduledRun, normalizeRecipients, renderReportEmail, runScheduledReports, scheduledRunIfDue,
+  hashShareToken, isoWeekday, latestScheduledRun, openShare, createShare, normalizeRecipients, renderReportEmail, runScheduledReports, scheduledRunIfDue,
 } from "../src/index.ts";
 
 /**
@@ -211,7 +211,11 @@ describe("scheduled report delivery (M6)", () => {
     for (const f of (snap!.report.figures as Array<{ status: string; display?: { ar: string } }>).filter((x) => x.status === "value")) {
       expect(mailer.sent[0]!.html).toContain(f.display!.ar);
     }
-    expect(mailer.sent[0]!.html).toContain(`/r/${snap!.id}`);
+    // The button is a read-only share link (works without a GLIO account), stored only as a hash.
+    const link = mailer.sent[0]!.html.match(/https:\/\/app\.example\.test\/s\/([A-Za-z0-9_-]{43})/);
+    expect(link).not.toBeNull();
+    const [share] = await db.as(superuser, (q) => q("select snapshot_id, token_hash, created_by_label from report_shares order by created_at desc limit 1"));
+    expect(share).toMatchObject({ snapshot_id: snap!.id, token_hash: hashShareToken(link![1]!), created_by_label: "report-email" });
     expect(mailer.sent[0]!.idempotencyKey).toBe(`glio-report-${snap!.id}-owner-e1@example.test`);
     expect(mailer.sent[0]!.replyTo).toBe("info@example.test");
   });
@@ -249,3 +253,34 @@ describe("scheduled report delivery (M6)", () => {
     ]);
   });
 });
+
+describe("report share links", () => {
+  it("open the report read-only and count views; revoked, expired or made-up links open nothing", async () => {
+    const [snap] = await db.as(superuser, (q) => q("select id from report_snapshots order by created_at desc limit 1"));
+    const { token, id } = await createShare(exec, { snapshotId: snap!.id, days: 7, createdBy: owner });
+    const opened = await openShare(exec, token);
+    expect(opened?.clientName).toBe("Test Client E1");
+    expect(opened?.report.figures.length).toBeGreaterThan(0);
+    await openShare(exec, token);
+    const [row] = await db.as(superuser, (q) => q("select view_count, last_viewed_at is not null as seen from report_shares where id = $1", [id]));
+    expect(row).toEqual({ view_count: 2, seen: true });
+
+    expect(await openShare(exec, "x".repeat(43))).toBeNull();
+    expect(await openShare(exec, "not-a-token")).toBeNull();
+    await db.as(user(owner), (q) => q("update report_shares set revoked_at = now() where id = $1", [id]));
+    expect(await openShare(exec, token)).toBeNull();
+
+    const expired = await createShare(exec, { snapshotId: snap!.id, createdByLabel: "test" });
+    await db.as(superuser, (q) => q("update report_shares set created_at = created_at - interval '2 days', expires_at = created_at - interval '1 day' where id = $1", [expired.id]));
+    expect(await openShare(exec, expired.token)).toBeNull();
+  });
+
+  it("only owners and managers create links (as themselves), and can only revoke them", async () => {
+    const [snap] = await db.as(superuser, (q) => q("select id, workspace_id, client_id from report_snapshots limit 1"));
+    await expect(db.as(user(owner), (q) => q(
+      "insert into report_shares (workspace_id, client_id, snapshot_id, token_hash, created_by, view_count) values ($1, $2, $3, repeat('f', 64), $4, 99)",
+      [snap!.workspace_id, snap!.client_id, snap!.id, owner]))).rejects.toThrow(/row-level security/);
+    await expect(db.as(user(owner), (q) => q("update report_shares set expires_at = now() + interval '300 days'"))).rejects.toThrow(/permission denied/);
+  });
+});
+

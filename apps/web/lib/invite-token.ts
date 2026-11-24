@@ -15,3 +15,6 @@ export const isInviteToken = (t: string) => /^[A-Za-z0-9_-]{43}$/.test(t);
 
 /** Short-lived cookie that shows a new invite link once to the owner who created it (never in URLs or logs). */
 export const INVITE_LINK_COOKIE = "glio_invite_link";
+
+/** Short-lived cookie that shows a new report share link once to the person who created it. */
+export const SHARE_LINK_COOKIE = "glio_share_link";

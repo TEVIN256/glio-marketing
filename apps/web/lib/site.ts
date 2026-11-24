@@ -24,7 +24,7 @@ export const COMPANY = {
   crNumber: "7042386917" as string | null,
 } as const;
 
-export const POLICY_UPDATED = "2026-11-21";
+export const POLICY_UPDATED = "2026-11-24";
 
 type Section = { heading: string; paragraphs: string[]; bullets?: string[] };
 
@@ -160,6 +160,7 @@ export const site = {
           "Vercel: استضافة الموقع والمنصة.",
           "Cloudflare: خدمة أسماء النطاقات.",
           "Google Workspace: البريد الإلكتروني.",
+          "Resend: إرسال رسائل GLIO (تأكيد الحساب واستعادة كلمة المرور، والتقارير، والإشعارات، والدعوات).",
           "Anthropic: كتابة ملخصات التقارير (أرقام إجمالية فقط).",
         ],
       },
@@ -363,6 +364,7 @@ export const site = {
           "Vercel: hosting for the website and platform.",
           "Cloudflare: domain name service.",
           "Google Workspace: email.",
+          "Resend: sending GLIO emails (account confirmation and password reset, reports, notifications and invitations).",
           "Anthropic: writing report summaries (aggregated figures only).",
         ],
       },

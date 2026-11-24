@@ -102,6 +102,20 @@ Open http://localhost:3000. `/` is the public company website (with `/privacy` a
 - Not repeated while a request is open for the campaign, or for 7 days after a decision on a suggestion for it. Suggestions expire after 72 hours.
 - Demo data: campaigns C (no conversions), D (strong) and E (expensive) trigger the three rules.
 
+## Sign-in emails (Supabase Auth through Resend)
+
+Sign-up confirmation and password reset emails are sent by Supabase Auth through Resend's SMTP, from glioagency.org, with GLIO's own Arabic + English templates (ADR-025). Without this, Supabase's built-in sender allows only a few emails per hour and sends from a Supabase address.
+
+1. Resend → API Keys → create a key named "Supabase Auth SMTP", permission **Sending access**, domain **glioagency.org**. Paste it only into Supabase (step 2), never in chat or code. A separate key from the Vercel one, so either can be revoked alone.
+2. Supabase → Authentication → Emails → **SMTP Settings** → enable custom SMTP: sender email `no-reply@glioagency.org`, sender name `GLIO`, host `smtp.resend.com`, port `465`, username `resend`, password = the key from step 1.
+3. Supabase → Authentication → URL Configuration: Site URL exactly `https://www.glioagency.org` (no trailing slash); the templates build their links from it.
+4. Supabase → Authentication → Emails → Templates:
+   - **Confirm signup**: subject `تأكيد بريدك في GLIO · Confirm your GLIO email`, body = `supabase/templates/confirm-signup.html`.
+   - **Reset password**: subject `إعادة تعيين كلمة المرور في GLIO · Reset your GLIO password`, body = `supabase/templates/reset-password.html`.
+5. Supabase → Authentication → Rate Limits: with custom SMTP the email limit starts at 30 per hour; raise it if needed.
+
+Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one button (so link-scanning email security tools can't use the token first) that verifies it on the server. They work in any browser or device, unlike the old `/auth/callback?code=…` links (kept for emails already sent). Logs: `email_link_failed` events. Resend → Emails lists every message sent.
+
 ## Report share links
 
 - Report page → "Share this report" (owners/managers): a read-only link valid 7, 30 or 90 days, shown once after creating it; the table lists every link with its views and a Revoke button. Report emails carry their own 30-day link (marked "from email" in the table).

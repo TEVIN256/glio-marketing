@@ -41,6 +41,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       {q.m === "check" && <p className="notice" role="status">{t.checkEmail}</p>}
       {(q.m === "confirmed" || q.m === "link") && <p className="notice" role="status">{t.authLinkOtherBrowser}</p>}
       {q.e === "auth" && <p className="notice error" role="alert">{t.authError}</p>}
+      {q.e === "link" && <p className="notice error" role="alert">{t.authLinkExpired}</p>}
       {q.e === "credentials" && <p className="notice error" role="alert">{t.authCredentials}</p>}
       {q.e === "rate" && <p className="notice error" role="alert">{t.authRate}</p>}
       {q.e === "exists" && <p className="notice error" role="alert">{t.authExists} <a href={withNext("/login")}>{t.signIn}</a></p>}

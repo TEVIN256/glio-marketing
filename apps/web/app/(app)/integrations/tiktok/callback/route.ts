@@ -1,11 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { todayIn } from "@glio/core";
 import { TikTokConnector } from "@glio/connectors";
 import { VaultSecretStore, connectAdAccounts, newSecretRef } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { TIKTOK_OAUTH_COOKIE, readPendingConnection } from "@/lib/oauth-state";
+import { presetPeriod } from "@/lib/delta";
 import { serverDb } from "@/lib/server-db";
+import { syncClientTikTok } from "@/lib/tiktok-sync";
+
+// The first sync of the last 30 days runs before the redirect, so the client page opens with figures.
+export const maxDuration = 60;
 
 /**
  * TikTok for Business returns the advertiser here (registered redirect URL:
@@ -15,6 +21,8 @@ import { serverDb } from "@/lib/server-db";
  * 2. The signed-in user must still be an owner/manager of that client (checked under RLS).
  * 3. The auth code is exchanged server-side; the token goes to Supabase Vault,
  *    the authorised ad accounts are attached to the client, and each is audited.
+ * 4. The last 30 complete days are synced right away (the page's default period).
+ *    If that fails the accounts stay connected and the page says so.
  * The auth code and token are never logged, stored in tables, or shown.
  */
 export async function GET(request: NextRequest) {
@@ -54,7 +62,19 @@ export async function GET(request: NextRequest) {
     console.info(JSON.stringify({
       event: "tiktok_connected", client: pending.client, connected: result.connected.length, conflicts: result.conflicts.length,
     }));
-    return go(`${base}?tt=connected&n=${result.connected.length}&c=${result.conflicts.length}`);
+    let firstSync = "none";
+    if (result.connected.length > 0) {
+      const period = presetPeriod("30d", todayIn("Asia/Riyadh"));
+      try {
+        await syncClientTikTok(db, pending.ws, pending.client, period.from, period.to, "backfill");
+        firstSync = "ok";
+      } catch (err) {
+        const s = describeError(err);
+        console.error(JSON.stringify({ event: "tiktok_first_sync_failed", client: pending.client, code: s.code, error: s.message }));
+        firstSync = s.code;
+      }
+    }
+    return go(`${base}?tt=connected&n=${result.connected.length}&c=${result.conflicts.length}&s=${encodeURIComponent(firstSync)}`);
   } catch (err) {
     const d = describeError(err);
     console.error(JSON.stringify({ event: "tiktok_connect_failed", client: pending.client, code: d.code, error: d.message }));

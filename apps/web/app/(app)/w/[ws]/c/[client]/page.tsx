@@ -8,12 +8,13 @@ import { Kpi } from "@/components/app/Kpi";
 import { PageHeader } from "@/components/app/PageHeader";
 import { TrendChart } from "@/components/app/TrendChart";
 import { shortDate } from "@/lib/short-date";
+import { type SyncRunRow, accountSyncs, connectionState, riyadhDateTime } from "@/lib/sync-status";
 import { isolateNumbers } from "@/components/ReportView";
 import { clientAccess } from "@/lib/authz";
 import { CHART_METRICS, type ChartMetric, loadOverview } from "@/lib/dashboard";
 import { type Period, type PresetKey, PRESET_KEYS, figureDelta, matchPreset, presetPeriod } from "@/lib/delta";
 import { env } from "@/lib/env";
-import { ERROR_HINTS } from "@/lib/errors";
+import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
 import { connectTikTok, deleteClient, generateReport, loadDemoData, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
@@ -44,7 +45,7 @@ export default async function ClientDashboard({
   const base = `/w/${ws}/c/${client}`;
   const keepRange: Record<string, string> = activePreset ? { p: activePreset } : { from: period.from, to: period.to };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -60,6 +61,8 @@ export default async function ClientDashboard({
       .select("enabled, pause_min_spend_major, high_cpa_pct, low_cpa_pct, min_conversions_for_cut, min_conversions_for_raise, step_pct")
       .eq("client_id", client).maybeSingle(),
     supabase.from("report_unsubscribes").select("email, unsubscribed_at").eq("client_id", client).order("unsubscribed_at", { ascending: false }),
+    supabase.from("sync_runs").select("ad_account_id, status, started_at, finished_at, error_code")
+      .eq("client_id", client).order("started_at", { ascending: false }).limit(50),
   ]);
   const sg = sgSettings ?? {
     enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
@@ -79,6 +82,20 @@ export default async function ClientDashboard({
   });
 
   const tiktokAccounts = (tiktokRows ?? []).filter((a) => a.external_id !== DEMO_EXTERNAL_ID);
+  const syncs = accountSyncs(tiktokAccounts, (runRows ?? []) as SyncRunRow[]);
+  const state = connectionState(tiktokAccounts, syncs, overview.hasData);
+  const lastSuccess = [...syncs.values()].map((s) => s.lastSucceededAt).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
+  const canSync = access.canManage && tiktokAccounts.some((a) => a.status === "active");
+  // Sync button for the empty states: syncs the period on screen.
+  const syncForm = (label: string, primary: boolean) => (
+    <form action={syncTikTok}>
+      <input type="hidden" name="ws" value={ws} />
+      <input type="hidden" name="client" value={client} />
+      <input type="hidden" name="from" value={period.from} />
+      <input type="hidden" name="to" value={period.to} />
+      <button type="submit" className={primary ? undefined : "secondary"}>{label}</button>
+    </form>
+  );
   const statusLabel: Record<string, string> = { active: t.statusActive, pending: t.statusPending, disconnected: t.statusDisconnected, error: t.statusError };
   const freqLabel: Record<string, string> = { off: t.freqOff, weekly: t.freqWeekly, monthly: t.freqMonthly };
   const weekdays = [7, 1, 2, 3, 4, 5, 6] as const;
@@ -115,12 +132,20 @@ export default async function ClientDashboard({
       {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync" || q.e === "email") && (
         <p className="notice error" role="alert">
           {{ report: t.reportError, demo: t.demoError, tiktok: t.tiktokError, sync: t.syncError, email: t.emailError }[q.e]}{" "}
-          {q.code && ERROR_HINTS[q.code] ? ERROR_HINTS[q.code]![lang] : null}{" "}
+          {hintFor(q.code, lang)}{" "}
           {q.code && <code className="num">({q.code})</code>}
         </p>
       )}
       {q.tt === "connected" && (
-        <p className="notice" role="status">{fill(t.tiktokConnected, q.n)} {Number(q.c) > 0 && fill(t.tiktokConflicts, q.c)}</p>
+        <p className={q.s && q.s !== "ok" && q.s !== "none" ? "notice warn" : "notice"} role="status">
+          {fill(t.tiktokConnected, q.n)} {Number(q.c) > 0 && fill(t.tiktokConflicts, q.c)}{" "}
+          {q.s === "ok" && t.tiktokFirstSyncOk}
+          {q.s && q.s !== "ok" && q.s !== "none" && (
+            <>
+              {t.tiktokFirstSyncFailed} {hintFor(q.s, lang)} <code className="num">({q.s})</code>
+            </>
+          )}
+        </p>
       )}
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
       {q.ap === "requested" && (
@@ -189,10 +214,10 @@ export default async function ClientDashboard({
         labels={{ "7d": t.p7d, "14d": t.p14d, "30d": t.p30d, "90d": t.p90d, mtd: t.pmtd, lastm: t.plastm, custom: t.customRange, from: t.from, to: t.to, apply: t.apply }}
       />
 
-      {!overview.hasData && (
+      {state === "no_account" && (
         <section className="empty-state">
           <h2>{t.noDataPeriod}</h2>
-          <p className="muted">{t.noDataHint}</p>
+          <p className="muted">{t.noDataHintConnect}{env.demoMode() ? ` ${t.noDataHintDemo}` : ""}</p>
           {access.canManage && (
             <div className="empty-actions">
               {env.tiktokConfigured() && (
@@ -213,6 +238,23 @@ export default async function ClientDashboard({
               )}
             </div>
           )}
+        </section>
+      )}
+      {state === "never_synced" && (
+        <section className="empty-state">
+          <h2>{t.neverSyncedTitle}</h2>
+          <p className="muted">{t.neverSyncedHint}</p>
+          {canSync && <div className="empty-actions">{syncForm(t.syncThisPeriod, true)}</div>}
+        </section>
+      )}
+      {state === "no_activity" && (
+        <section className="empty-state">
+          <h2>{t.noActivityTitle}</h2>
+          <p className="muted">
+            {t.noActivityHint}{" "}
+            {lastSuccess && <>{t.lastSynced} <span className="num">{riyadhDateTime(lastSuccess)}</span>.</>}
+          </p>
+          {canSync && <div className="empty-actions">{syncForm(t.syncThisPeriod, false)}</div>}
         </section>
       )}
 
@@ -326,7 +368,10 @@ export default async function ClientDashboard({
                     <span className="campaign-name">{a.name ?? a.external_id}</span>
                     <span className="campaign-id" dir="ltr">{a.external_id}{a.currency ? ` · ${a.currency}` : ""}</span>
                   </span>
-                  <span className={`badge ${a.status === "active" ? "ok" : a.status === "error" ? "drift" : "other"}`}>{statusLabel[a.status] ?? a.status}</span>
+                  <span className="account-sync">
+                    <span className={`badge ${a.status === "active" ? "ok" : a.status === "error" ? "drift" : "other"}`}>{statusLabel[a.status] ?? a.status}</span>
+                    <AccountSyncLine sync={syncs.get(a.id)} t={t} lang={lang} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -529,5 +574,29 @@ export default async function ClientDashboard({
         </section>
       )}
     </div>
+  );
+}
+
+/** "Last synced …", or the last failure with its hint, under each connected account. */
+function AccountSyncLine({ sync, t, lang }: {
+  sync: ReturnType<typeof accountSyncs> extends Map<string, infer V> ? V | undefined : never;
+  t: Record<string, string>;
+  lang: "ar" | "en";
+}) {
+  if (!sync?.last) return <span className="muted small">{t.notSyncedYet}</span>;
+  const failed = sync.last.status === "failed";
+  return (
+    <span className={`small ${failed ? "sync-failed" : "muted"}`}>
+      {failed ? (
+        <>
+          {t.lastSyncFailed} <span className="num">{riyadhDateTime(sync.last.started_at)}</span>
+          {sync.last.error_code && <> · {hintFor(sync.last.error_code, lang) ?? <code className="num">{sync.last.error_code}</code>}</>}
+        </>
+      ) : sync.last.status === "running" ? (
+        <>{t.syncRunning}</>
+      ) : (
+        <>{t.lastSynced} <span className="num">{riyadhDateTime(sync.lastSucceededAt ?? sync.last.started_at)}</span></>
+      )}
+    </span>
   );
 }

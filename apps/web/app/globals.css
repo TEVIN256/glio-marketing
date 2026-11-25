@@ -454,3 +454,8 @@ button.secondary.danger:hover { border-color: var(--bad); color: var(--bad); }
 .delete-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .delete-form input { max-width: 320px; }
 button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad); color: #fff; }
+
+/* Connected accounts: status and last sync */
+.account-sync { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: end; }
+.small { font-size: 12px; }
+.sync-failed { color: var(--bad); font-size: 12px; }

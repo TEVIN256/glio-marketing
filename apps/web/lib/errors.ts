@@ -54,3 +54,10 @@ export const ERROR_HINTS: Record<string, { ar: string; en: string }> = {
   tiktok_40119: { ar: "حسب تيك توك، حساب المطوّر وحساب المعلن ليسا للشركة نفسها.", en: "TikTok says the developer and the advertiser are not the same company." },
   TIKTOK_NO_ACCOUNTS: { ar: "لم يُختر أي حساب إعلاني في تيك توك، أو لا يوجد حساب مربوط.", en: "No TikTok ad account was authorised, or none is connected." },
 };
+
+/** The hint for an error code, also when it is wrapped (SYNC_tiktok_40105, REFRESH_tiktok_40100). */
+export function hintFor(code: string | undefined | null, lang: "ar" | "en"): string | null {
+  if (!code) return null;
+  const bare = code.replace(/^(SYNC_|REFRESH_)/, "");
+  return (ERROR_HINTS[code] ?? ERROR_HINTS[bare])?.[lang] ?? null;
+}

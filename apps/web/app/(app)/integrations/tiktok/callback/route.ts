@@ -33,7 +33,14 @@ export async function GET(request: NextRequest) {
     res.cookies.set(TIKTOK_OAUTH_COOKIE, "", { path: "/integrations/tiktok", maxAge: 0 });
     return res;
   };
-  if (!pending) return go("/app?e=tiktok_state");
+  if (!pending) {
+    // Why, without logging the values: no cookie (expired, other browser or domain), no state, or a mismatch.
+    console.error(JSON.stringify({
+      event: "tiktok_state_failed", has_cookie: Boolean(request.cookies.get(TIKTOK_OAUTH_COOKIE)?.value),
+      has_state: Boolean(params.get("state")), has_code: Boolean(params.get("auth_code") ?? params.get("code")), host: request.nextUrl.host,
+    }));
+    return go("/app?e=tiktok_state");
+  }
 
   const base = `/w/${pending.ws}/c/${pending.client}`;
   const authCode = params.get("auth_code") ?? params.get("code"); // TikTok sends both; auth_code is the documented one

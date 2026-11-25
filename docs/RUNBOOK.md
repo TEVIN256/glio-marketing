@@ -125,6 +125,10 @@ Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one 
 - The link opens `/s/<secret>` without a GLIO account. Expired, revoked or wrong links show "This link isn't available."
 - Audit: `report.shared`, `report.share_revoked`. Views are counted in `report_shares.view_count` / `last_viewed_at`.
 
+## System check (Diagnostics page)
+
+Owners open **https://www.glioagency.org/diagnostics**. It checks, live and without showing any secret value: required settings present (and the TikTok app id / secret format), the database at the latest migration (tables, functions, policy count `EXPECTED_POLICIES` in `apps/web/lib/system-check.ts`, which must be raised with each migration that adds policies), row-level security on every table, a Vault write → read → delete round trip (what connecting TikTok does), TikTok's API reachable, and failures recorded in the last 7 days (syncs, report emails, approved changes, syncs stuck running). Run it after every deploy that changes settings or migrations, and before connecting a client. Logs it can't see: Vercel → Logs (`daily_job`, `tiktok_*`, `*_failed` events).
+
 ## Data retention and client deletion
 
 - **Delete a client** (owners): client page → "Delete client" at the bottom → type the client's name → "Delete client and all its data". Removes everything with that client's id (ad accounts, tokens in Vault, synced data, reports, share links, email schedule and log, unsubscribes, approvals, settings, client viewers). Audit: `client.deleted` with the name and record counts. Logs: `client_deleted` / `client_delete_failed`. Nothing changes in the TikTok account; to also cut GLIO's access there, the advertiser removes the app in TikTok.

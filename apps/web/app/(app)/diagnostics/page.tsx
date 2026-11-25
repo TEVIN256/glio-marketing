@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import { diagnoseDatabase } from "@/lib/diagnose";
+import { serverDb } from "@/lib/server-db";
+import { type Check, runSystemChecks } from "@/lib/system-check";
 import { requireUser } from "@/lib/supabase/server";
 
 /**
- * Setup diagnostics for workspace owners: checks the server's database
- * connection settings and connects once. Shows no secret values.
+ * Setup diagnostics for workspace owners: a live system check (configuration,
+ * schema, Vault, TikTok, recent failures), then the database connection
+ * settings. Shows no secret values.
  */
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,16 @@ export default async function Diagnostics() {
   if (!owned || owned.length === 0) notFound();
 
   const d = await diagnoseDatabase(process.env.DATABASE_URL);
+  let checks: Check[];
+  try {
+    checks = d.connection?.ok ? await runSystemChecks(serverDb()) : [];
+  } catch (err) {
+    checks = [{ group: "System check", name: "Could not finish", status: "bad", detail: err instanceof Error ? err.message.slice(0, 200) : "error" }];
+  }
+  const icon = (s: Check["status"]) => (s === "ok" ? "✅" : s === "bad" ? "❌" : s === "warn" ? "⚠️" : "ℹ️");
+  const groups = [...new Set(checks.map((c) => c.group))];
+  const problems = checks.filter((c) => c.status === "bad").length;
+  const warnings = checks.filter((c) => c.status === "warn").length;
   const yes = (b: boolean | undefined) => (b ? "yes" : "no");
   const rows: Array<[string, string, "ok" | "bad" | "info"]> = [];
   rows.push(["DATABASE_URL set", yes(d.present), d.present ? "ok" : "bad"]);
@@ -41,7 +54,28 @@ export default async function Diagnostics() {
   return (
     <div className="stack" dir="ltr" lang="en">
       <h1>Setup diagnostics</h1>
-      <p className="muted">Server database connection. No secret values are shown; the password is described, never displayed.</p>
+      {checks.length > 0 && (
+        <p className={problems ? "notice error" : warnings ? "notice warn" : "notice"} role="status">
+          {problems ? `${problems} problem(s) found` : warnings ? `No problems; ${warnings} thing(s) to look at` : "All checks passed"}
+        </p>
+      )}
+      {groups.map((g) => (
+        <section key={g} className="stack">
+          <h2>{g}</h2>
+          <table className="card" style={{ borderCollapse: "collapse", width: "100%" }}>
+            <tbody>
+              {checks.filter((c) => c.group === g).map((c) => (
+                <tr key={c.name} style={{ borderBlockEnd: "1px solid var(--line)" }}>
+                  <td style={{ padding: 8, fontWeight: 600, width: "40%" }}>{icon(c.status)} {c.name}</td>
+                  <td style={{ padding: 8 }}><code>{c.detail}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
+      <h2>Database connection settings</h2>
+      <p className="muted">No secret values are shown; the password is described, never displayed.</p>
       <table className="card" style={{ borderCollapse: "collapse", width: "100%" }}>
         <tbody>
           {rows.map(([k, v, s]) => (

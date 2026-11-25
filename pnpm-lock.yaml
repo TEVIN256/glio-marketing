@@ -41,6 +41,9 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
     devDependencies:
+      '@glio/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6

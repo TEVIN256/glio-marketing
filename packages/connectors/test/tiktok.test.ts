@@ -47,7 +47,11 @@ describe("TikTokConnector.fetchDailyReportPage", () => {
       impressions: 10000,
       clicks: 250,
       conversions: "12",
+      purchaseValue: "1440.00",
     });
+    // Purchase value and TikTok's own ROAS are requested (ROAS only so the raw payload keeps it for checks).
+    const metrics = JSON.parse(new URL(call.url).searchParams.get("metrics")!);
+    expect(metrics).toEqual(expect.arrayContaining(["total_complete_payment_rate", "complete_payment_roas"]));
   });
 
   it("treats missing metrics as 'not provided', never as zero", async () => {
@@ -55,10 +59,12 @@ describe("TikTokConnector.fetchDailyReportPage", () => {
     const first = body.data.list[0]!;
     delete (first.metrics as Record<string, unknown>)["conversion"];
     (first.metrics as Record<string, unknown>)["clicks"] = "-"; // TikTok's "no value"
+    (first.metrics as Record<string, unknown>)["total_complete_payment_rate"] = "-"; // e.g. no website purchase tracking
     const { fetch } = fakeFetch([{ status: 200, body }]);
     const page = await new TikTokConnector({ fetch }).fetchDailyReportPage(request);
     expect(page.rows[0]!.conversions).toBeNull();
     expect(page.rows[0]!.clicks).toBeNull();
+    expect(page.rows[0]!.purchaseValue).toBeNull();
   });
 
   it("marks rate limits and server errors as retryable", async () => {

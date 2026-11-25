@@ -162,6 +162,7 @@ Owners open **https://www.glioagency.org/diagnostics**. It checks, live and with
   2. Add `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (Secret) in Vercel, then redeploy.
   3. Connect one real account, sync a short period, and compare the dashboard with TikTok Ads Manager (spend, impressions, clicks, conversions per day; the reconciliation badge should say "Matches the platform"). The API details were checked against TikTok's docs on 2026-11-24 (ADR-028); the two remaining `TODO(verify)` items in `packages/connectors/src/tiktok/api.ts` (totals row for an inactive range, advertiser/info id limit) are settled on this first account.
 - TikTok error codes: `tiktok_40001`/`40102`/`40104`/`40105`/`40106` = authorisation expired or revoked (connect again); `tiktok_40016`/`40100`/`40133`/`5xxxx`/`60001` = throttled or TikTok down (retried, then try later); `tiktok_40119` = developer and advertiser not the same company.
+- **Purchase value and ROAS (ADR-031):** the sync also fetches `total_complete_payment_rate` (Ads Manager "Purchase value (website)") and, only for the archive, `complete_payment_roas`. ROAS = purchase value / spend. Rows synced before 2026-11-25 have no purchase value: until those days are synced again, ROAS for a period that includes them shows "Not provided by platform for some days". Fix: client page → choose the period → "Sync TikTok data" (30 days per click is fastest; longer periods are split automatically).
 - Error codes on the client page: `TIKTOK_NOT_CONFIGURED` (Vercel variables missing), `TIKTOK_CANCELLED` (not approved on TikTok), `TIKTOK_NO_ACCOUNTS`, `3F000` / `42883` (Vault not enabled), `tiktok_<n>` (TikTok API error code).
 
 ## Apply migrations to Supabase
@@ -316,6 +317,17 @@ select
   exists (select 1 from pg_proc where proname = 'purge_expired_data')               as purge_fn,          -- expect true
   has_table_privilege('service_role', 'public.report_deliveries', 'DELETE')           as server_can_delete, -- expect false
   (select count(*) from pg_policies where schemaname = 'public')                      as policies;          -- expect 49
+```
+
+### Diagnostic for 20261125000001_purchase_value
+
+```sql
+select
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'metric_daily'
+          and column_name = 'purchase_value_minor')                                               as value_column, -- expect true
+  (select pg_get_constraintdef(oid) like '%purchase_value%' from pg_constraint
+    where conname = 'reconciliation_checks_metric_check')                                         as recon_metric, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                  as policies;     -- expect 49
 ```
 
 ## Migration log

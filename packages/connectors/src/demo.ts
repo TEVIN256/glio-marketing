@@ -37,10 +37,14 @@ function demoRow(campaign: (typeof CAMPAIGNS)[number], day: string) {
   const [cvrMin, cvrMax] = campaign.cvr ?? [2, 9];
   const conversions = Math.floor(clicks * seeded(`${campaign.id}|${day}|cvr`, cvrMin, cvrMax) / 100);
   const spendHalalas = clicks * seeded(`${campaign.id}|${day}|cpc`, 35, 90);
+  const valueHalalas = conversions * seeded(`${campaign.id}|${day}|aov`, 8_000, 22_000); // SAR 80-220 per order
+  const money = (h: number) => `${Math.floor(h / 100)}.${String(h % 100).padStart(2, "0")}`;
   return {
     campaign, day, impressions, clicks, conversions,
-    spend: `${Math.floor(spendHalalas / 100)}.${String(spendHalalas % 100).padStart(2, "0")}`,
+    spend: money(spendHalalas),
     spendHalalas,
+    value: money(valueHalalas),
+    valueHalalas,
   };
 }
 
@@ -60,7 +64,8 @@ export const demoTikTokFetch: FetchLike = async (url) => {
   const requestId = `demo-${sha256OfJson(url).slice(0, 12)}`;
 
   if (p.get("data_level") === "AUCTION_ADVERTISER") {
-    const sum = (k: "impressions" | "clicks" | "conversions" | "spendHalalas") => rows.reduce((s, r) => s + r[k], 0);
+    const sum = (k: "impressions" | "clicks" | "conversions" | "spendHalalas" | "valueHalalas") => rows.reduce((s, r) => s + r[k], 0);
+    const value = sum("valueHalalas");
     const spend = sum("spendHalalas");
     return {
       status: 200,
@@ -72,6 +77,7 @@ export const demoTikTokFetch: FetchLike = async (url) => {
             metrics: {
               spend: `${Math.floor(spend / 100)}.${String(spend % 100).padStart(2, "0")}`,
               impressions: String(sum("impressions")), clicks: String(sum("clicks")), conversion: String(sum("conversions")),
+              total_complete_payment_rate: `${Math.floor(value / 100)}.${String(value % 100).padStart(2, "0")}`,
             },
           }],
           page_info: { page: 1, page_size: 10, total_number: 1, total_page: 1 },
@@ -89,7 +95,7 @@ export const demoTikTokFetch: FetchLike = async (url) => {
           dimensions: { campaign_id: r.campaign.id, stat_time_day: `${r.day} 00:00:00` },
           metrics: {
             campaign_name: r.campaign.name, spend: r.spend, impressions: String(r.impressions),
-            clicks: String(r.clicks), conversion: String(r.conversions),
+            clicks: String(r.clicks), conversion: String(r.conversions), total_complete_payment_rate: r.value,
           },
         })),
         page_info: { page: 1, page_size: 1000, total_number: rows.length, total_page: 1 },

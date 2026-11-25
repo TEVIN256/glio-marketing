@@ -103,22 +103,23 @@ export async function runSync(deps: SyncDeps, args: SyncArgs): Promise<SyncResul
         const rows = await q(
           `insert into public.metric_daily
              (workspace_id, client_id, ad_account_id, platform, level, entity_id, entity_name, date, currency,
-              spend_minor, impressions, clicks, conversions, raw_payload_id, sync_run_id)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+              spend_minor, impressions, clicks, conversions, purchase_value_minor, raw_payload_id, sync_run_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $16, $14, $15)
            on conflict (ad_account_id, level, entity_id, date) do update set
              entity_name = excluded.entity_name, currency = excluded.currency,
              spend_minor = excluded.spend_minor, impressions = excluded.impressions,
-             clicks = excluded.clicks, conversions = excluded.conversions,
+             clicks = excluded.clicks, conversions = excluded.conversions, purchase_value_minor = excluded.purchase_value_minor,
              raw_payload_id = excluded.raw_payload_id, sync_run_id = excluded.sync_run_id, updated_at = now()
            where (metric_daily.entity_name, metric_daily.currency, metric_daily.spend_minor, metric_daily.impressions,
-                  metric_daily.clicks, metric_daily.conversions, metric_daily.raw_payload_id)
+                  metric_daily.clicks, metric_daily.conversions, metric_daily.purchase_value_minor, metric_daily.raw_payload_id)
                  is distinct from
                  (excluded.entity_name, excluded.currency, excluded.spend_minor, excluded.impressions,
-                  excluded.clicks, excluded.conversions, excluded.raw_payload_id)
+                  excluded.clicks, excluded.conversions, excluded.purchase_value_minor, excluded.raw_payload_id)
            returning 1`,
           [
             account.workspace_id, account.client_id, account.id, account.platform, r.level, r.entityId, r.entityName,
             r.date, account.currency, r.spendMinor, r.impressions, r.clicks, r.conversions, r.rawPayloadId, syncRunId,
+            r.purchaseValueMinor,
           ],
         );
         written += rows.length;
@@ -197,6 +198,7 @@ interface PreparedRow {
   impressions: number | null;
   clicks: number | null;
   conversions: string | null;
+  purchaseValueMinor: string | null;
   rawPayloadId: number;
 }
 
@@ -225,6 +227,7 @@ function prepareRows(
       impressions: row.impressions,
       clicks: row.clicks,
       conversions: row.conversions,
+      purchaseValueMinor: row.purchaseValue === null ? null : decimalToMinor(row.purchaseValue, currency).toString(),
       rawPayloadId,
     };
     const key = `${row.level}|${row.entityId}|${row.date}`;

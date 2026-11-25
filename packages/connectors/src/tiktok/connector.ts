@@ -4,7 +4,7 @@ import {
 } from "../types.ts";
 import {
   TIKTOK_ADVERTISER_GET_PATH, TIKTOK_ADVERTISER_INFO_FIELDS, TIKTOK_ADVERTISER_INFO_MAX_IDS, TIKTOK_ADVERTISER_INFO_PATH,
-  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_TOKEN_PATH,
+  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_PURCHASE_VALUE_METRIC, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_TOKEN_PATH,
   accountTotalsParams, isNoValue, campaignDailyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
   type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.ts";
@@ -136,6 +136,7 @@ export class TikTokConnector implements ReportingConnector {
       impressions: integerOrNull(m["impressions"]),
       clicks: integerOrNull(m["clicks"]),
       conversions: decimalOrNull(m["conversion"]),
+      purchaseValue: decimalOrNull(m[TIKTOK_PURCHASE_VALUE_METRIC]),
     };
   }
 
@@ -207,6 +208,7 @@ function toRow(item: TikTokReportData["list"][number]): DailyMetricRow {
     impressions: integerOrNull(m["impressions"]),
     clicks: integerOrNull(m["clicks"]),
     conversions: decimalOrNull(m["conversion"]),
+    purchaseValue: decimalOrNull(m[TIKTOK_PURCHASE_VALUE_METRIC]),
   };
 }
 

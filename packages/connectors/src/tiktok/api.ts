@@ -38,6 +38,15 @@ export const TIKTOK_CAMPAIGN_FIELDS = ["campaign_id", "campaign_name", "operatio
 export const TIKTOK_MAX_DAYS_PER_REPORT = 30;
 export const TIKTOK_PAGE_SIZE = 1000; // maximum
 
+/**
+ * Website purchase value (Ads Manager "Purchase value (website)", doc 1751443967255553): a total value
+ * in the account currency, "0.00" when nothing was bought, "-" when not applicable. TikTok's own
+ * "Purchase ROAS (website)" (complete_payment_roas) is requested too, only so the raw payload keeps it
+ * for checking GLIO's ROAS (value / spend); it is not stored as a metric.
+ */
+export const TIKTOK_PURCHASE_VALUE_METRIC = "total_complete_payment_rate";
+export const TIKTOK_VALUE_METRICS = [TIKTOK_PURCHASE_VALUE_METRIC, "complete_payment_roas"];
+
 /** Campaign x day report parameters. */
 export function campaignDailyReportParams(advertiserId: string, dateFrom: string, dateTo: string, page: number) {
   return {
@@ -45,7 +54,7 @@ export function campaignDailyReportParams(advertiserId: string, dateFrom: string
     report_type: "BASIC",
     data_level: "AUCTION_CAMPAIGN",
     dimensions: ["campaign_id", "stat_time_day"],
-    metrics: ["campaign_name", "spend", "impressions", "clicks", "conversion"],
+    metrics: ["campaign_name", "spend", "impressions", "clicks", "conversion", ...TIKTOK_VALUE_METRICS],
     // Include deleted campaigns (default is STATUS_NOT_DELETE), so campaign rows add up to the
     // account totals used for reconciliation. filter_value is itself a JSON string (doc 1751443975608321).
     filtering: [{ field_name: "campaign_status", filter_type: "IN", filter_value: JSON.stringify(["STATUS_ALL"]) }],
@@ -66,7 +75,7 @@ export function accountTotalsParams(advertiserId: string, dateFrom: string, date
     report_type: "BASIC",
     data_level: "AUCTION_ADVERTISER",
     dimensions: ["advertiser_id"],
-    metrics: ["spend", "impressions", "clicks", "conversion"],
+    metrics: ["spend", "impressions", "clicks", "conversion", ...TIKTOK_VALUE_METRICS],
     start_date: dateFrom,
     end_date: dateTo,
     page: 1,

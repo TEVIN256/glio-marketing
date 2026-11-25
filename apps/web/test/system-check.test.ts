@@ -34,6 +34,7 @@ describe("system check", () => {
     expect(by("Server connection").status).toBe("ok");
     expect(by("Tables (migrations applied)").status).toBe("ok");
     expect(by("Functions").status).toBe("ok");
+    expect(by("Columns from later migrations").status).toBe("ok");
     expect(by("Row-level security policies")).toMatchObject({ status: "ok", detail: `${EXPECTED_POLICIES} (expected ${EXPECTED_POLICIES})` });
     expect(by("Every table has row-level security on").status).toBe("ok");
     expect(by("Vault (token storage) write → read → delete")).toMatchObject({ status: "ok" });

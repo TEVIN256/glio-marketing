@@ -157,7 +157,7 @@ export function templateCommentary(report: ReportModel): { ar: string; en: strin
 
   for (const scope of scopes) {
     const name = SCOPE_LABELS[scope] ?? { en: scope, ar: scope };
-    const parts = (["spend", "impressions", "clicks", "conversions"] as const)
+    const parts = (["spend", "impressions", "clicks", "conversions", "purchase_value", "roas"] as const)
       .map((m) => ({ m, f: get(scope, m) }))
       .filter((x) => x.f?.display);
     if (parts.length === 0) continue;

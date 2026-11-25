@@ -29,6 +29,7 @@ export async function loadChannelTotals(
             count(m.impressions)::int as n_impr, sum(m.impressions)::text as impressions,
             count(m.clicks)::int as n_clicks, sum(m.clicks)::text as clicks,
             count(m.conversions)::int as n_conv, sum(m.conversions)::text as conversions,
+            count(m.purchase_value_minor)::int as n_value, sum(m.purchase_value_minor)::text as purchase_value,
             array_agg(distinct m.raw_payload_id order by m.raw_payload_id) as raw_ids
      from public.metric_daily m
      where m.client_id = $1 and m.level = 'campaign' and m.date between $2 and $3
@@ -59,6 +60,7 @@ export async function loadChannelTotals(
     impressions: summed(r.n, r.n_impr, r.impressions),
     clicks: summed(r.n, r.n_clicks, r.clicks),
     conversionsScaled: summed(r.n, r.n_conv, r.conversions, true),
+    purchaseValueMinor: summed(r.n, r.n_value, r.purchase_value),
     rawPayloadIds: (r.raw_ids as Array<string | number>).map(Number),
     reconciliation: reconFor(r.platform),
   }));
@@ -82,6 +84,7 @@ export async function loadChannelTotals(
     impressions: add((c) => c.impressions),
     clicks: add((c) => c.clicks),
     conversionsScaled: add((c) => c.conversionsScaled),
+    purchaseValueMinor: add((c) => c.purchaseValueMinor ?? null),
     rawPayloadIds: [...new Set(channels.flatMap((c) => c.rawPayloadIds))].sort((a, b) => a - b),
     reconciliation: channels.some((c) => c.reconciliation === "drift") ? "drift" : "ok",
   };

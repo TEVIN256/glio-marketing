@@ -72,12 +72,46 @@ describe("buildReport", () => {
   });
 
   it("says 'not provided' instead of inventing values", () => {
-    expect(fig("tiktok.roas")).toMatchObject({ status: "not_provided", reason: "Revenue source not connected" });
+    // No purchase value synced (older rows or the platform sent none): both say so, nothing is guessed.
+    expect(fig("tiktok.purchase_value")).toMatchObject({ status: "not_provided", reason: "Not provided by platform" });
+    expect(fig("tiktok.roas")).toMatchObject({ status: "not_provided", reason: "Depends on a figure not provided by platform" });
     const r = buildReport({ period, channels: [{ ...tiktok, conversionsScaled: null }], total: null, digits: "latn" });
     expect(r.figures.find((f) => f.id === "tiktok.conversions")).toMatchObject({ status: "not_provided" });
     expect(r.figures.find((f) => f.id === "tiktok.cpa")).toMatchObject({ status: "not_provided" });
     const zero = buildReport({ period, channels: [{ ...tiktok, clicks: 0n }], total: null, digits: "latn" });
     expect(zero.figures.find((f) => f.id === "tiktok.cpc")).toMatchObject({ status: "not_applicable", reason: "No clicks" });
+  });
+});
+
+describe("purchase value and ROAS", () => {
+  const withValue = { ...tiktok, purchaseValueMinor: 386070n }; // SAR 3,860.70 on SAR 337.89 spend
+  const r = buildReport({ period, channels: [withValue], total: null, digits: "latn" });
+  const f = (id: string) => r.figures.find((x) => x.id === id);
+
+  it("purchase value is money; ROAS = value / spend, exact numerator and denominator, display rounded half-up", () => {
+    expect(f("tiktok.purchase_value")).toMatchObject({ status: "value", value: { kind: "money", minor: "386070", currency: "SAR" } });
+    expect(f("tiktok.purchase_value")!.display!.en).toBe("SAR 3,860.70");
+    expect(f("tiktok.roas")).toMatchObject({
+      status: "value", value: { kind: "ratio", numerator: "386070", denominator: "33789", unit: "multiple", display: "11.43" },
+      display: { en: "11.43", ar: "11.43" },
+    });
+  });
+
+  it("no spend → ROAS not applicable; some days without a value → not provided; mixed currencies → not applicable", () => {
+    const noSpend = buildReport({ period, channels: [{ ...withValue, spendMinor: 0n }], total: null, digits: "latn" });
+    expect(noSpend.figures.find((x) => x.id === "tiktok.roas")).toMatchObject({ status: "not_applicable", reason: "No spend" });
+    const partial = buildReport({ period, channels: [{ ...withValue, purchaseValueMinor: "partial" }], total: null, digits: "latn" });
+    expect(partial.figures.find((x) => x.id === "tiktok.purchase_value")).toMatchObject({ status: "not_provided" });
+    expect(partial.figures.find((x) => x.id === "tiktok.roas")).toMatchObject({ status: "not_provided" });
+    const mixed = buildReport({ period, channels: [{ ...withValue, currency: null }], total: null, digits: "latn" });
+    expect(mixed.figures.find((x) => x.id === "tiktok.roas")).toMatchObject({ status: "not_applicable" });
+  });
+
+  it("the automatic summary includes them, and the validator accepts their numbers", async () => {
+    const out = await generateCommentary(null, r);
+    expect(out.en).toContain("purchase value SAR 3,860.70");
+    expect(out.en).toContain("return on ad spend 11.43");
+    expect(out.en).not.toContain("Not available");
   });
 });
 
@@ -107,7 +141,7 @@ describe("generateCommentary", () => {
     expect(r.source).toBe("llm");
     expect(r.attempts).toHaveLength(1);
     expect(r.en).toContain(good.en);
-    expect(r.en).toContain("Not available in this report: return on ad spend.");
+    expect(r.en).toContain("Not available in this report: purchase value, return on ad spend.");
     expect(r.ar).toContain("غير متوفر في هذا التقرير");
   });
 

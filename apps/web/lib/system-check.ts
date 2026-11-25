@@ -22,6 +22,11 @@ const EXPECTED_TABLES = [
   "client_guardrails", "notification_settings", "invitations", "suggestion_settings", "report_shares", "report_unsubscribes",
 ];
 const EXPECTED_FUNCTIONS = ["decide_approval", "accept_invitation", "invitation_preview", "purge_expired_data"];
+/** Columns added to existing tables by later migrations (the code writes them; a missing one breaks syncs or emails). */
+const EXPECTED_COLUMNS: Array<[string, string]> = [
+  ["report_deliveries", "unsubscribe_token_hash"], // 0012
+  ["metric_daily", "purchase_value_minor"], // 0014
+];
 
 export function configChecks(e: NodeJS.ProcessEnv = process.env): Check[] {
   const set = (k: string) => Boolean(e[k] && String(e[k]).trim());
@@ -75,6 +80,12 @@ export async function databaseChecks(db: SqlExecutor): Promise<Check[]> {
   const missingFns = EXPECTED_FUNCTIONS.filter((f) => !fns.includes(f));
   rows.push({ group: "Database", name: "Functions", status: missingFns.length ? "bad" : "ok",
     detail: missingFns.length ? `missing: ${missingFns.join(", ")}` : "present" });
+  const cols = await db.query(
+    "select table_name || '.' || column_name as c from information_schema.columns where table_schema = 'public'");
+  const have = new Set(cols.map((r) => r.c as string));
+  const missingCols = EXPECTED_COLUMNS.map(([t, c]) => `${t}.${c}`).filter((c) => !have.has(c));
+  rows.push({ group: "Database", name: "Columns from later migrations", status: missingCols.length ? "bad" : "ok",
+    detail: missingCols.length ? `missing: ${missingCols.join(", ")} (run the migration SQL)` : "present" });
   const [pol] = await db.query("select count(*)::int as n from pg_policies where schemaname = 'public'");
   rows.push({ group: "Database", name: "Row-level security policies", status: pol!.n === EXPECTED_POLICIES ? "ok" : "warn",
     detail: `${pol!.n} (expected ${EXPECTED_POLICIES})` });

@@ -9,7 +9,7 @@ import type { SqlExecutor } from "./sql.ts";
 /** 0.5% in parts per million. */
 export const DEFAULT_THRESHOLD_PPM = 5_000;
 
-export type MetricName = "spend" | "impressions" | "clicks" | "conversions";
+export type MetricName = "spend" | "impressions" | "clicks" | "conversions" | "purchase_value";
 export type CheckStatus = "ok" | "drift" | "not_comparable";
 
 /** Conversions can be fractional; compare them as integers scaled by 10^4 (numeric(20,4)). */
@@ -122,7 +122,8 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
               count(spend_minor)::int as n_spend, sum(spend_minor)::text as spend,
               count(impressions)::int as n_impr, sum(impressions)::text as impressions,
               count(clicks)::int as n_clicks, sum(clicks)::text as clicks,
-              count(conversions)::int as n_conv, sum(conversions)::text as conversions
+              count(conversions)::int as n_conv, sum(conversions)::text as conversions,
+              count(purchase_value_minor)::int as n_value, sum(purchase_value_minor)::text as purchase_value
        from public.metric_daily
        where ad_account_id = $1 and level = 'campaign' and date between $2 and $3`,
       [account.id, window.dateFrom, window.dateTo],
@@ -156,6 +157,12 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
       compare("clicks", ours(o!.clicks, o!.n_clicks), theirs.clicks),
       compare("conversions", oursConv, theirs.conversions),
     ];
+    // Purchase value is checked when both sides have it (it is optional: an account may not track
+    // website purchases, and older rows predate it), so its absence never downgrades the check.
+    const ourValue = ours(o!.purchase_value, o!.n_value);
+    if (typeof ourValue === "bigint" && theirs.purchaseValue !== null && !theirs.allEmpty) {
+      results.push(compare("purchase_value", ourValue, theirs.purchaseValue));
+    }
     const status: CheckStatus = results.some((r) => r.status === "drift")
       ? "drift"
       : results.some((r) => r.status === "not_comparable") ? "not_comparable" : "ok";
@@ -172,7 +179,7 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
           [
             checkId, account.workspace_id, account.client_id, account.id, account.platform, run.id, window.dateFrom, window.dateTo,
-            r.metric, unitOf(r.metric), r.metric === "spend" ? account.currency : null,
+            r.metric, unitOf(r.metric), r.metric === "spend" || r.metric === "purchase_value" ? account.currency : null,
             display(r.metric, r.ours), display(r.metric, r.theirs), r.driftPpm?.toString() ?? null, thresholdPpm,
             r.status, [r.note, evidenceNote].filter(Boolean).join(" | ") || null, payloadIds[0],
           ],
@@ -218,6 +225,7 @@ function sumPlatformTotals(answers: AccountTotals[], currency: string) {
     impressions: sum((a) => (a.impressions === null ? null : BigInt(a.impressions))),
     clicks: sum((a) => (a.clicks === null ? null : BigInt(a.clicks))),
     conversions: sum((a) => (a.conversions === null ? null : scaled(a.conversions))),
+    purchaseValue: sum((a) => (a.purchaseValue === null ? null : decimalToMinor(a.purchaseValue, currency))),
   };
 }
 
@@ -233,7 +241,7 @@ function scaled(decimal: string): bigint {
 }
 
 function unitOf(metric: MetricName): string {
-  return metric === "spend" ? "minor_units" : metric === "conversions" ? "decimal" : "count";
+  return metric === "spend" || metric === "purchase_value" ? "minor_units" : metric === "conversions" ? "decimal" : "count";
 }
 
 /** Value as stored in the numeric column: minor units / counts as-is, conversions unscaled. */

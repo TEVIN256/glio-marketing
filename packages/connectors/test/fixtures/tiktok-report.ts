@@ -5,7 +5,7 @@
  * real account is connected.
  */
 
-type Row = { campaign: string; name: string; day: string; spend: string; impressions: string; clicks: string; conversion: string };
+type Row = { campaign: string; name: string; day: string; spend: string; impressions: string; clicks: string; conversion: string; value?: string };
 
 export function tiktokReportPage(rows: Row[], page: number, totalPages: number, totalNumber = rows.length) {
   return {
@@ -21,6 +21,7 @@ export function tiktokReportPage(rows: Row[], page: number, totalPages: number, 
           impressions: r.impressions,
           clicks: r.clicks,
           conversion: r.conversion,
+          ...(r.value === undefined ? {} : { total_complete_payment_rate: r.value }),
         },
       })),
       page_info: { page, page_size: 1000, total_number: totalNumber, total_page: totalPages },
@@ -31,18 +32,18 @@ export function tiktokReportPage(rows: Row[], page: number, totalPages: number, 
 /** Two pages, two campaigns, three days (2026-01-01..03). */
 export const PAGE_1 = tiktokReportPage(
   [
-    { campaign: "test-campaign-001", name: "Test Campaign One", day: "2026-01-01", spend: "120.50", impressions: "10000", clicks: "250", conversion: "12" },
-    { campaign: "test-campaign-001", name: "Test Campaign One", day: "2026-01-02", spend: "99.99", impressions: "8000", clicks: "190", conversion: "9" },
-    { campaign: "test-campaign-001", name: "Test Campaign One", day: "2026-01-03", spend: "0.00", impressions: "0", clicks: "0", conversion: "0" },
+    { campaign: "test-campaign-001", name: "Test Campaign One", day: "2026-01-01", spend: "120.50", impressions: "10000", clicks: "250", conversion: "12", value: "1440.00" },
+    { campaign: "test-campaign-001", name: "Test Campaign One", day: "2026-01-02", spend: "99.99", impressions: "8000", clicks: "190", conversion: "9", value: "1012.50" },
+    { campaign: "test-campaign-001", name: "Test Campaign One", day: "2026-01-03", spend: "0.00", impressions: "0", clicks: "0", conversion: "0", value: "0.00" },
   ],
   1, 2, 6,
 );
 
 export const PAGE_2 = tiktokReportPage(
   [
-    { campaign: "test-campaign-002", name: "Test Campaign Two", day: "2026-01-01", spend: "45.10", impressions: "5000", clicks: "80", conversion: "3" },
-    { campaign: "test-campaign-002", name: "Test Campaign Two", day: "2026-01-02", spend: "60.00", impressions: "6100", clicks: "95", conversion: "4" },
-    { campaign: "test-campaign-002", name: "Test Campaign Two", day: "2026-01-03", spend: "12.30", impressions: "1500", clicks: "20", conversion: "1" },
+    { campaign: "test-campaign-002", name: "Test Campaign Two", day: "2026-01-01", spend: "45.10", impressions: "5000", clicks: "80", conversion: "3", value: "300.00" },
+    { campaign: "test-campaign-002", name: "Test Campaign Two", day: "2026-01-02", spend: "60.00", impressions: "6100", clicks: "95", conversion: "4", value: "420.75" },
+    { campaign: "test-campaign-002", name: "Test Campaign Two", day: "2026-01-03", spend: "12.30", impressions: "1500", clicks: "20", conversion: "1", value: "99.00" },
   ],
   2, 2, 6,
 );
@@ -53,11 +54,12 @@ export const EXPECTED_TOTALS = {
   impressions: 10000 + 8000 + 0 + 5000 + 6100 + 1500, // 30600
   clicks: 250 + 190 + 0 + 80 + 95 + 20, // 635
   conversions: 12 + 9 + 0 + 3 + 4 + 1, // 29
+  purchase_value_minor: 144000 + 101250 + 0 + 30000 + 42075 + 9900, // 327225 (SAR 3,272.25)
   rows: 6,
 };
 
 /** SYNTHETIC account-level totals response (one aggregated row). */
-export function tiktokAccountTotals(t: { spend: string; impressions: string; clicks: string; conversion: string }) {
+export function tiktokAccountTotals(t: { spend: string; impressions: string; clicks: string; conversion: string; total_complete_payment_rate?: string }) {
   return {
     code: 0,
     message: "OK",

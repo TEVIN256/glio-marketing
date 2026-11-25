@@ -148,7 +148,7 @@ pre.payload { direction: ltr; text-align: left; overflow: auto; max-height: 420p
 
 /* KPI tiles */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-@media (min-width: 1180px) { .kpi-grid, .figures { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1180px) { .kpi-grid, .figures { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .kpi { display: block; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); color: inherit; text-decoration: none; }
 a.kpi:hover { border-color: var(--accent); }
 .kpi-label { color: var(--muted); font-size: 0.88rem; }

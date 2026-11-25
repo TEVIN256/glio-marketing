@@ -25,7 +25,7 @@ export function figureRational(f: Figure | undefined): Rational | null {
 export type Direction = "up" | "down" | "flat";
 /** Whether "up" is good for the advertiser; spend is neither. */
 export const UP_IS_GOOD: Record<MetricId, boolean | null> = {
-  spend: null, impressions: true, clicks: true, conversions: true, ctr: true, cpc: false, cpa: false, roas: true,
+  spend: null, impressions: true, clicks: true, conversions: true, purchase_value: true, ctr: true, cpc: false, cpa: false, roas: true,
 };
 
 export interface Delta {

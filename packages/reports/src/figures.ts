@@ -5,20 +5,20 @@ import { type Digits, formatDecimal, formatMoney, formatPercent, roundRatio, tri
  * value (or an explicit reason it has none), its display text in English and
  * Arabic, and the raw platform payloads it was computed from.
  *
- * Base metrics (spend, impressions, clicks, conversions) are sums of stored
- * daily rows. Derived metrics (CTR, CPC, CPA) are computed here from exact
+ * Base metrics (spend, impressions, clicks, conversions, purchase value) are
+ * sums of stored daily rows. Derived metrics (CTR, CPC, CPA, ROAS) are computed here from exact
  * integers; only their DISPLAY is rounded (half-up), and the exact numerator
  * and denominator are kept in the figure.
  */
 
-export type MetricId = "spend" | "impressions" | "clicks" | "conversions" | "ctr" | "cpc" | "cpa" | "roas";
+export type MetricId = "spend" | "impressions" | "clicks" | "conversions" | "purchase_value" | "ctr" | "cpc" | "cpa" | "roas";
 export type FigureStatus = "value" | "not_provided" | "not_applicable";
 
 export type FigureValue =
   | { kind: "money"; minor: string; currency: string }
   | { kind: "count"; value: string }
   | { kind: "decimal"; value: string }
-  | { kind: "ratio"; numerator: string; denominator: string; unit: "percent" | "money_minor"; currency?: string; display: string };
+  | { kind: "ratio"; numerator: string; denominator: string; unit: "percent" | "money_minor" | "multiple"; currency?: string; display: string };
 
 export interface Figure {
   id: string; // e.g. "tiktok.spend", "total.ctr"
@@ -40,6 +40,8 @@ export interface ChannelTotals {
   impressions: bigint | null | "partial";
   clicks: bigint | null | "partial";
   conversionsScaled: bigint | null | "partial"; // conversions x 10^4
+  /** Platform-reported purchase value in minor units (TikTok: website purchases). Optional: older callers omit it. */
+  purchaseValueMinor?: bigint | null | "partial";
   rawPayloadIds: number[];
   reconciliation: "ok" | "drift" | "not_comparable" | "unchecked";
 }
@@ -53,11 +55,15 @@ export interface ReportModel {
   figures: Figure[];
 }
 
+/** The order figures are shown in everywhere (dashboard tiles, report page, shared page, email). */
+export const METRIC_ORDER: MetricId[] = ["spend", "purchase_value", "roas", "conversions", "cpa", "impressions", "clicks", "ctr", "cpc"];
+
 export const METRIC_LABELS: Record<MetricId, { en: string; ar: string }> = {
   spend: { en: "Spend", ar: "الإنفاق" },
   impressions: { en: "Impressions", ar: "مرات الظهور" },
   clicks: { en: "Clicks", ar: "النقرات" },
   conversions: { en: "Conversions", ar: "التحويلات" },
+  purchase_value: { en: "Purchase value", ar: "قيمة المشتريات" },
   ctr: { en: "Click-through rate", ar: "نسبة النقر إلى الظهور" },
   cpc: { en: "Cost per click", ar: "تكلفة النقرة" },
   cpa: { en: "Cost per conversion", ar: "تكلفة التحويل" },
@@ -130,6 +136,21 @@ export function buildReport(args: {
         }),
     );
 
+    const value = c.purchaseValueMinor ?? null;
+    figures.push(
+      missing("purchase_value", value) ??
+        (c.currency === null
+          ? fig("purchase_value", { status: "not_applicable", reason: "Channels use different currencies" })
+          : fig("purchase_value", {
+              status: "value",
+              value: { kind: "money", minor: String(value), currency: c.currency },
+              display: {
+                en: formatMoney(value as bigint, c.currency, "en", digits),
+                ar: formatMoney(value as bigint, c.currency, "ar", digits),
+              },
+            })),
+    );
+
     // Derived metrics
     const ratio = (
       metric: MetricId,
@@ -165,8 +186,14 @@ export function buildReport(args: {
             kind: "ratio", numerator: String(n), denominator: String(d), unit: "money_minor", currency: c.currency!, display: roundRatio(n, d, 0),
           }), "No conversions"),
     );
-    // Revenue isn't connected in Stage 1 (Salla/Zid/GA4 come later).
-    figures.push(fig("roas", { status: "not_provided", reason: "Revenue source not connected" }));
+    // ROAS = purchase value / spend, both in minor units of the same currency (e.g. 11.43 = SAR 11.43 per SAR 1).
+    figures.push(
+      c.currency === null
+        ? fig("roas", { status: "not_applicable", reason: "Channels use different currencies" })
+        : ratio("roas", value, c.spendMinor, (n, d) => ({
+            kind: "ratio", numerator: String(n), denominator: String(d), unit: "multiple", display: roundRatio(n, d, 2),
+          }), "No spend"),
+    );
   }
 
   return {
@@ -181,6 +208,7 @@ export function buildReport(args: {
 
 function displayRatio(v: FigureValue & { kind: "ratio" }, digits: Digits): { en: string; ar: string } {
   if (v.unit === "percent") return { en: formatPercent(v.display, "en", digits), ar: formatPercent(v.display, "ar", digits) };
+  if (v.unit === "multiple") return { en: formatDecimal(v.display, "en", digits), ar: formatDecimal(v.display, "ar", digits) };
   const minor = BigInt(v.display);
   return { en: formatMoney(minor, v.currency!, "en", digits), ar: formatMoney(minor, v.currency!, "ar", digits) };
 }

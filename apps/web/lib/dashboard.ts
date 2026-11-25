@@ -34,6 +34,8 @@ export interface CampaignRow {
   ctr: { en: string; ar: string } | null;
   conversions: { en: string; ar: string } | null;
   cpa: { en: string; ar: string } | null;
+  purchaseValue: { en: string; ar: string } | null;
+  roas: { en: string; ar: string } | null;
 }
 
 export interface Overview {
@@ -100,7 +102,8 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
             count(spend_minor)::int as n_spend, sum(spend_minor)::text as spend,
             count(impressions)::int as n_impr, sum(impressions)::text as impressions,
             count(clicks)::int as n_clicks, sum(clicks)::text as clicks,
-            count(conversions)::int as n_conv, sum(conversions)::text as conversions
+            count(conversions)::int as n_conv, sum(conversions)::text as conversions,
+            count(purchase_value_minor)::int as n_value, sum(purchase_value_minor)::text as purchase_value
      from public.metric_daily
      where client_id = $1 and level = 'campaign' and date between $2 and $3
      group by ad_account_id, platform, entity_id, currency
@@ -115,6 +118,7 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
     const impressions = full("n_impr") ? BigInt(r.impressions ?? "0") : null;
     const clicks = full("n_clicks") ? BigInt(r.clicks ?? "0") : null;
     const conv = full("n_conv") ? scaled(r.conversions, "conversions") : null;
+    const value = full("n_value") ? BigInt(r.purchase_value ?? "0") : null;
     return {
       adAccountId: r.ad_account_id,
       platform: r.platform,
@@ -128,6 +132,8 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
       ctr: clicks !== null && impressions ? both((l) => formatPercent(roundRatio(clicks * 100n, impressions, 2), l, "latn")) : null,
       conversions: conv === null ? null : both((l) => formatDecimal(unscale(conv), l, "latn")),
       cpa: spend !== null && conv ? both((l) => formatMoney(BigInt(roundRatio(spend * 10_000n, conv, 0)), r.currency, l, "latn")) : null,
+      purchaseValue: value === null ? null : both((l) => formatMoney(value, r.currency, l, "latn")),
+      roas: value !== null && spend ? both((l) => formatDecimal(roundRatio(value, spend, 2), l, "latn")) : null,
     };
   });
 

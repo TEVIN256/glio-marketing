@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { DEMO_EXTERNAL_ID } from "@glio/connectors";
 import { minorUnitDigits, todayIn } from "@glio/core";
-import { type Figure, METRIC_LABELS, type MetricId } from "@glio/reports";
+import { type Figure, METRIC_LABELS, METRIC_ORDER, type MetricId } from "@glio/reports";
 import { CampaignTable } from "@/components/app/CampaignTable";
 import { DateRange } from "@/components/app/DateRange";
 import { Kpi } from "@/components/app/Kpi";
@@ -22,7 +22,7 @@ import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions"
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
-const KPI_ORDER: MetricId[] = ["spend", "impressions", "clicks", "conversions", "ctr", "cpc", "cpa", "roas"];
+const KPI_ORDER: MetricId[] = METRIC_ORDER;
 const fill = (text: string, n: string | number | undefined) => text.replace("{n}", String(Number(n) || 0));
 
 export default async function ClientDashboard({
@@ -319,7 +319,7 @@ export default async function ClientDashboard({
           labels={{
             campaign: t.campaign, spend: METRIC_LABELS.spend[lang], share: t.shareOfSpend, impressions: METRIC_LABELS.impressions[lang],
             clicks: METRIC_LABELS.clicks[lang], ctr: METRIC_LABELS.ctr[lang], conversions: METRIC_LABELS.conversions[lang],
-            cpa: METRIC_LABELS.cpa[lang], none: t.noCampaigns,
+            cpa: METRIC_LABELS.cpa[lang], purchaseValue: METRIC_LABELS.purchase_value[lang], roas: t.roasShort, none: t.noCampaigns,
           }}
           propose={access.canGenerate ? {
             ws, client, pending: pendingKeys,

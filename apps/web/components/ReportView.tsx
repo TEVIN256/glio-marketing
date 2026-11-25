@@ -1,4 +1,4 @@
-import type { Figure, MetricId, ReportModel } from "@glio/reports";
+import { type Figure, METRIC_ORDER, type MetricId, type ReportModel } from "@glio/reports";
 import { METRIC_LABELS, SCOPE_LABELS } from "@glio/reports";
 import type { Dict, Lang } from "@/lib/i18n";
 
@@ -9,7 +9,7 @@ import type { Dict, Lang } from "@/lib/i18n";
  * stored; it computes nothing.
  */
 
-const ORDER: MetricId[] = ["spend", "impressions", "clicks", "conversions", "ctr", "cpc", "cpa", "roas"];
+const ORDER: MetricId[] = METRIC_ORDER;
 
 /**
  * Wrap every number, date or amount in the commentary in a direction-isolated

@@ -21,6 +21,8 @@ export interface DailyMetricRow {
   impressions: number | null;
   clicks: number | null;
   conversions: string | null; // decimal string; some platforms report fractional conversions
+  /** Purchase value as a decimal string in account currency (TikTok: website purchases); null = not provided. */
+  purchaseValue: string | null;
 }
 
 export interface ReportPage {
@@ -65,6 +67,7 @@ export interface AccountTotals {
   impressions: number | null;
   clicks: number | null;
   conversions: string | null;
+  purchaseValue: string | null;
 }
 
 export interface AccountTotalsRequest {

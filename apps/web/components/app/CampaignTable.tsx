@@ -8,7 +8,7 @@ export interface ProposeLabels {
 export interface CampaignTableProps {
   rows: CampaignRow[];
   lang: "ar" | "en";
-  labels: { campaign: string; spend: string; share: string; impressions: string; clicks: string; ctr: string; conversions: string; cpa: string; none: string };
+  labels: { campaign: string; spend: string; share: string; impressions: string; clicks: string; ctr: string; conversions: string; cpa: string; purchaseValue: string; roas: string; none: string };
   /** Set when the viewer may propose changes (owners, managers, analysts). */
   propose?: { ws: string; client: string; pending: Set<string>; labels: ProposeLabels };
 }
@@ -24,17 +24,19 @@ export function CampaignTable({ rows, lang, labels, propose }: CampaignTableProp
             <th scope="col">{labels.campaign}</th>
             <th scope="col" className="n">{labels.spend}</th>
             <th scope="col" className="share-col">{labels.share}</th>
-            <th scope="col" className="n">{labels.impressions}</th>
-            <th scope="col" className="n">{labels.clicks}</th>
-            <th scope="col" className="n">{labels.ctr}</th>
+            <th scope="col" className="n">{labels.purchaseValue}</th>
+            <th scope="col" className="n">{labels.roas}</th>
             <th scope="col" className="n">{labels.conversions}</th>
             <th scope="col" className="n">{labels.cpa}</th>
+            <th scope="col" className="n">{labels.clicks}</th>
+            <th scope="col" className="n">{labels.ctr}</th>
+            <th scope="col" className="n">{labels.impressions}</th>
             {propose && <th scope="col"><span className="sr-only">{propose.labels.actions}</span></th>}
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
-            <tr><td colSpan={propose ? 9 : 8} className="muted">{labels.none}</td></tr>
+            <tr><td colSpan={propose ? 11 : 10} className="muted">{labels.none}</td></tr>
           )}
           {rows.map((r) => (
             <tr key={`${r.platform}:${r.id}:${r.currency}`}>
@@ -52,11 +54,13 @@ export function CampaignTable({ rows, lang, labels, propose }: CampaignTableProp
                   </span>
                 )}
               </td>
-              <td className="n">{cell(r.impressions)}</td>
-              <td className="n">{cell(r.clicks)}</td>
-              <td className="n">{cell(r.ctr)}</td>
+              <td className="n">{cell(r.purchaseValue)}</td>
+              <td className="n">{cell(r.roas)}</td>
               <td className="n">{cell(r.conversions)}</td>
               <td className="n">{cell(r.cpa)}</td>
+              <td className="n">{cell(r.clicks)}</td>
+              <td className="n">{cell(r.ctr)}</td>
+              <td className="n">{cell(r.impressions)}</td>
               {propose && (
                 <td className="n">
                   <details className="row-menu">

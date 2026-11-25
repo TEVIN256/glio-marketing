@@ -36,7 +36,10 @@ const run = (args: { thresholdPpm?: number } = {}) =>
   reconcile({ db: exec, connector: connector(), secrets, retry: { sleep: async () => {} }, log: (e) => logs.push(e) }, { syncRunId, ...args });
 
 // Our stored totals (from PAGE_1 + PAGE_2): 337.89 SAR, 30600 impressions, 635 clicks, 29 conversions.
-const exact = { spend: "337.89", impressions: String(EXPECTED_TOTALS.impressions), clicks: String(EXPECTED_TOTALS.clicks), conversion: "29" };
+const exact = {
+  spend: "337.89", impressions: String(EXPECTED_TOTALS.impressions), clicks: String(EXPECTED_TOTALS.clicks), conversion: "29",
+  total_complete_payment_rate: "3272.25",
+};
 
 beforeAll(async () => {
   db = await TestDb.create();
@@ -71,7 +74,7 @@ afterAll(async () => {
 
 const rowsFor = (checkId: string) =>
   exec.query(
-    "select metric, ours::text, theirs::text, drift_ppm::text, threshold_ppm, status, note, platform_payload_id from reconciliation_checks where check_id = $1 order by metric",
+    "select metric, ours::text, theirs::text, currency, drift_ppm::text, threshold_ppm, status, note, platform_payload_id from reconciliation_checks where check_id = $1 order by metric",
     [checkId],
   );
 
@@ -81,9 +84,10 @@ describe("M3 gate", () => {
     expect(r.status).toBe("ok");
     const rows = await rowsFor(r.checkId!);
     expect(rows.map((x) => [x.metric, x.status, x.drift_ppm])).toEqual([
-      ["clicks", "ok", "0"], ["conversions", "ok", "0"], ["impressions", "ok", "0"], ["spend", "ok", "0"],
+      ["clicks", "ok", "0"], ["conversions", "ok", "0"], ["impressions", "ok", "0"], ["purchase_value", "ok", "0"], ["spend", "ok", "0"],
     ]);
     expect(rows.find((x) => x.metric === "spend")).toMatchObject({ ours: "33789", theirs: "33789", threshold_ppm: 5000 });
+    expect(rows.find((x) => x.metric === "purchase_value")).toMatchObject({ ours: "327225", theirs: "327225", currency: "SAR" });
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ event: "reconciliation", level: "info", status: "ok", checkId: r.checkId });
   });
@@ -118,8 +122,19 @@ describe("M3 gate", () => {
     );
     expect(latest).toEqual([
       { metric: "clicks", status: "ok" }, { metric: "conversions", status: "ok" },
-      { metric: "impressions", status: "ok" }, { metric: "spend", status: "drift" },
+      { metric: "impressions", status: "ok" }, { metric: "purchase_value", status: "ok" }, { metric: "spend", status: "drift" },
     ]);
+  });
+
+  it("purchase value: a drift is flagged; when the platform gives no account total for it, it is skipped, never 'not comparable'", async () => {
+    totalsBody = tiktokAccountTotals({ ...exact, total_complete_payment_rate: "3500.00" });
+    const drifted = await run();
+    expect(drifted.status).toBe("drift");
+    expect(drifted.results.find((x) => x.metric === "purchase_value")).toMatchObject({ status: "drift" });
+    totalsBody = tiktokAccountTotals({ ...exact, total_complete_payment_rate: "-" } as typeof exact);
+    const skipped = await run();
+    expect(skipped.status).toBe("ok");
+    expect(skipped.results.map((x) => x.metric)).not.toContain("purchase_value");
   });
 
   it("each check points at the archived platform response it compared against", async () => {

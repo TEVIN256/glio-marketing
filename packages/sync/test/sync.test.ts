@@ -108,6 +108,8 @@ describe("M2 gate: idempotent sync", () => {
       conversions: `${EXPECTED_TOTALS.conversions}.0000`,
     });
     expect(await count("raw_platform_payloads")).toBe(2);
+    const [v] = await exec.query("select sum(purchase_value_minor)::text as v, count(purchase_value_minor)::int as n from metric_daily");
+    expect(v).toEqual({ v: String(EXPECTED_TOTALS.purchase_value_minor), n: 6 }); // SAR 3,272.25, every row has it
   });
 
   it("re-running the same window creates zero duplicates and byte-identical rows and totals", async () => {

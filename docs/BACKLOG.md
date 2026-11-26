@@ -5,6 +5,26 @@ When an item is built, move its outcome to `DECISIONS.md` (ADR) and `RUNBOOK.md`
 
 ## Next
 
+### Zid store connection: real sales next to ad-reported sales (requested 2026-11-26)
+
+WAKE UP sells on Zid. Connect a merchant's Zid store, read-only, to compare what ad platforms claim with what the store
+actually sold.
+
+- **Store sales** tile per day/period: orders, gross sales, discounts, refunds/cancellations → net sales.
+- **Overall ROAS:** store sales ÷ total ad spend across channels, independent of platform attribution.
+- **Tracking check:** TikTok-reported purchases vs real orders.
+  - Flag likely double counting when TikTok reports more purchases than the store had orders.
+  - Flag a likely broken pixel when there are many orders but almost no TikTok purchases.
+- **Privacy:** store daily aggregates only, never customer names, phones or addresses (PDPL data minimisation).
+- **Needs:**
+  - a Zid partner/developer account and app approval (owner, like TikTok);
+  - verified API details (research in progress);
+  - an OAuth "Connect Zid" flow;
+  - a daily sync, optionally order webhooks;
+  - a migration for store daily totals.
+- **Open questions:** whether Zid exposes an order's traffic source/UTM (per-channel attribution); Salla later with
+  the same design.
+
 ### Break-even ROAS on the dashboard
 
 - Show a break-even line or marker on the ROAS tile and in the campaign table.

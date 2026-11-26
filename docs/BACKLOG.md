@@ -73,7 +73,6 @@ actually sold.
 
 ## Later
 
-- **Workspace and user-account deletion.** Currently on request by email (COMPLIANCE.md).
 - **Other purchase values:**
   - in-app: `total_purchase_value`
   - TikTok Shop: `total_onsite_shopping_value`

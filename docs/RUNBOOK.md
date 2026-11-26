@@ -129,6 +129,12 @@ Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one 
 
 Owners open **https://www.glioagency.org/diagnostics**. It checks, live and without showing any secret value: required settings present (and the TikTok app id / secret format), the database at the latest migration (tables, functions, policy count `EXPECTED_POLICIES` in `apps/web/lib/system-check.ts`, which must be raised with each migration that adds policies), row-level security on every table, a Vault write → read → delete round trip (what connecting TikTok does), TikTok's API reachable, and failures recorded in the last 7 days (syncs, report emails, approved changes, syncs stuck running). Run it after every deploy that changes settings or migrations, and before connecting a client. Logs it can't see: Vercel → Logs (`daily_job`, `tiktok_*`, `*_failed` events).
 
+## Deleting a workspace or an account
+
+- **Workspace** (owners): Team page → "Delete workspace" → type its name. Deletes every client and all data, members, invitations, settings; TikTok tokens are revoked at TikTok and deleted from Vault. Audit `workspace.deleted` (name and counts) stays. Logs `workspace_deleted` / `workspace_delete_failed`.
+- **Account** (anyone, themselves only): click your email in the sidebar → "Your account" → type your email. Blocked while you are the only owner of a workspace (delete it or make someone else owner first). Cancels your open invitations, audits `member.account_deleted` in each workspace, then deletes the Supabase sign-in record. Past actions keep your bare id ("former member").
+- **Needs** `SUPABASE_SECRET_KEY` in Vercel (type **Secret**): Supabase → Project Settings → API Keys → Secret keys. Without it the page says to email us (Diagnostics shows a warning).
+
 ## Activity (audit log)
 
 - Sidebar → Activity (owners/managers of the workspace): the audit log, newest first, 200 per page, filter by client and kind (viewing data / changes / access and sharing). Labels for every action live in `apps/web/lib/activity.ts` (a test fails if a new action has none).
@@ -369,6 +375,16 @@ select
 select
   (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'client_economics') as economics_rls, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                      as policies;      -- expect 54
+```
+
+### Diagnostic for 20261127000002_account_deletion
+
+```sql
+select
+  (select count(*) from pg_constraint where confrelid = 'auth.users'::regclass
+     and connamespace = 'public'::regnamespace)                                              as fks_to_users,       -- expect 3 (all ON DELETE CASCADE)
+  has_column_privilege('service_role', 'public.invitations', 'revoked_at', 'UPDATE')         as server_can_cancel,  -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                              as policies;           -- expect 54
 ```
 
 ## Migration log

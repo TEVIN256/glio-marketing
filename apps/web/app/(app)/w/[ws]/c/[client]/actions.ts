@@ -233,7 +233,10 @@ export async function deleteClient(formData: FormData) {
   let failure: string | null = null;
   try {
     const db = serverDb();
-    const r = await deleteClientData({ db, secrets: new VaultSecretStore(db) }, { workspaceId: ws, clientId: client, deletedBy: access.user.id });
+    const revoke = env.tiktokConfigured()
+      ? async (accessToken: string) => { await new TikTokConnector().revokeToken({ appId: env.tiktokAppId(), appSecret: env.tiktokAppSecret(), accessToken }); }
+      : undefined;
+    const r = await deleteClientData({ db, secrets: new VaultSecretStore(db), revoke }, { workspaceId: ws, clientId: client, deletedBy: access.user.id });
     console.info(JSON.stringify({ event: "client_deleted", workspace: ws, deleted: r.deleted, secrets_deleted: r.secretsDeleted, secrets_failed: r.secretsFailed }));
   } catch (err) {
     const d = describeError(err);

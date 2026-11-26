@@ -39,6 +39,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <p className="muted">{t.tagline}</p>
       {next.startsWith("/invite/") && <p className="notice" role="status">{t.inviteSignInHint}</p>}
       {q.m === "check" && <p className="notice" role="status">{t.checkEmail}</p>}
+      {q.m === "account_deleted" && <p className="notice" role="status">{t.accountDeletedNotice}</p>}
       {(q.m === "confirmed" || q.m === "link") && <p className="notice" role="status">{t.authLinkOtherBrowser}</p>}
       {q.e === "auth" && <p className="notice error" role="alert">{t.authError}</p>}
       {q.e === "link" && <p className="notice error" role="alert">{t.authLinkExpired}</p>}

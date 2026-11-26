@@ -91,7 +91,7 @@ export function Sidebar({ lang, email, workspaces, labels }: SidebarProps) {
           <button type="submit" className="sidebar-btn" lang={lang === "ar" ? "en" : "ar"}>{labels.switchLang}</button>
         </form>
         <a className="sidebar-link" href="/">{labels.website}</a>
-        <div className="sidebar-user" dir="ltr" title={email}>{email}</div>
+        <a className="sidebar-user" href="/account" dir="ltr" title={email}>{email}</a>
         <form action={signOut}>
           <button type="submit" className="sidebar-btn">{labels.signOut}</button>
         </form>

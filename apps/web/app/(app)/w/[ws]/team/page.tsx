@@ -6,7 +6,7 @@ import { getDict } from "@/lib/i18n";
 import { INVITE_LINK_COOKIE } from "@/lib/invite-token";
 import { serverDb } from "@/lib/server-db";
 import { requireUser } from "@/lib/supabase/server";
-import { changeRole, inviteMember, removeMember, revokeInvite } from "./actions";
+import { changeRole, inviteMember, removeMember, revokeInvite, deleteWorkspace } from "./actions";
 
 const fmt = (iso: string) => new Date(iso).toISOString().slice(0, 16).replace("T", " ");
 
@@ -62,6 +62,8 @@ export default async function TeamPage({
       <PageHeader crumbs={[{ href: "/app", label: t.workspaces }, { href: `/w/${ws}`, label: workspace.name }]} title={t.teamTitle} subtitle={t.teamSub} />
 
       {q.e === "forbidden" && <p className="notice error" role="alert">{t.notAllowed}</p>}
+      {q.e === "ws_confirm" && <p className="notice error" role="alert">{t.deleteWsConfirmError}</p>}
+      {q.e === "ws_delete" && <p className="notice error" role="alert">{t.deleteWsError} {q.code && <code className="num">({q.code})</code>}</p>}
       {q.e === "invite_input" && <p className="notice error" role="alert">{t.inviteInputError}</p>}
       {q.e === "invite" && (
         <p className="notice error" role="alert">{t.inviteError} {q.code && ERROR_HINTS[q.code] ? ERROR_HINTS[q.code]![lang] : null} {q.code && <code className="num">({q.code})</code>}</p>
@@ -172,6 +174,20 @@ export default async function TeamPage({
               </tbody>
             </table>
           </div>
+        </section>
+      )}
+
+      {isOwner && (
+        <section id="delete-ws" className="card stack danger-card" aria-labelledby="delete-ws-h">
+          <h2 id="delete-ws-h">{t.deleteWsTitle}</h2>
+          <p>{t.deleteWsText}</p>
+          <p className="muted">{t.deleteWsKept}</p>
+          <form action={deleteWorkspace} className="delete-form">
+            <input type="hidden" name="ws" value={ws} />
+            <label htmlFor="delete-ws-confirm">{t.deleteWsConfirm} <strong><bdi>{workspace.name}</bdi></strong></label>
+            <input id="delete-ws-confirm" name="confirm" required autoComplete="off" />
+            <button type="submit" className="danger">{t.deleteWsButton}</button>
+          </form>
         </section>
       )}
     </div>

@@ -11,3 +11,5 @@ export * from "./delete-client.ts";
 export * from "./pending.ts";
 export * from "./intraday.ts";
 export * from "./disconnect.ts";
+export * from "./tokens.ts";
+export * from "./delete-workspace.ts";

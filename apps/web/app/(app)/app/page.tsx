@@ -29,6 +29,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
       <PageHeader title={t.welcome} subtitle={t.workspacesSub} />
       {q.pw === "changed" && <p className="notice" role="status">{t.pwChanged}</p>}
       {q.e && <p className="notice error" role="alert">{q.e === "tiktok_state" ? t.tiktokStateError : t.createError}</p>}
+      {q.ws_deleted && <p className="notice" role="status">{t.workspaceDeletedNotice}</p>}
 
       <div className="tile-grid">
         {(workspaces ?? []).map((w) => (

@@ -37,6 +37,8 @@ export const ACTIONS: Record<string, { group: ActivityGroup | null; en: string; 
   "member.role_changed": A("access", "Changed a member's role", "غيّر دور عضو"),
   "member.removed": A("access", "Removed a member", "أزال عضوًا"),
   "workspace.created": A("access", "Created the workspace", "أنشأ مساحة العمل"),
+  "workspace.deleted": A("changes", "Deleted the workspace", "حذف مساحة العمل"),
+  "member.account_deleted": A("access", "Deleted their GLIO account", "حذف حسابه في GLIO"),
   "report.unsubscribed": A(null, "A recipient unsubscribed from report emails", "ألغى مستلم اشتراكه في رسائل التقارير"),
   "report.resubscribed": A(null, "A recipient subscribed again", "أعاد مستلم الاشتراك"),
 };

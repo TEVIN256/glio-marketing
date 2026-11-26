@@ -515,3 +515,5 @@ button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad)
 /* Activity (audit log) */
 .activity-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .activity-filters select { min-width: 180px; }
+a.sidebar-user { display: block; text-decoration: none; }
+a.sidebar-user:hover { color: #fff; text-decoration: underline; }

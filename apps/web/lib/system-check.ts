@@ -27,6 +27,8 @@ const EXPECTED_COLUMNS: Array<[string, string]> = [
   ["report_deliveries", "unsubscribe_token_hash"], // 0012
   ["metric_daily", "purchase_value_minor"], // 0014
 ];
+/** Foreign keys to auth.users that must be gone after migration 0018 (they would block account deletion). */
+const FORBIDDEN_FKS = ["report_snapshots_created_by_fkey", "report_deliveries_sent_by_fkey", "invitations_invited_by_fkey"];
 
 export function configChecks(e: NodeJS.ProcessEnv = process.env): Check[] {
   const set = (k: string) => Boolean(e[k] && String(e[k]).trim());
@@ -40,6 +42,8 @@ export function configChecks(e: NodeJS.ProcessEnv = process.env): Check[] {
   need("TIKTOK_APP_SECRET", "Connect TikTok");
   need("RESEND_API_KEY", "report and notification emails");
   need("CRON_SECRET", "the daily job");
+  rows.push({ group: "Configuration", name: "SUPABASE_SECRET_KEY", status: set("SUPABASE_SECRET_KEY") ? "ok" : "warn",
+    detail: set("SUPABASE_SECRET_KEY") ? "set" : "missing: people can't delete their own account (manual by email until set)" });
   if (set("TIKTOK_APP_ID")) {
     const id = String(e.TIKTOK_APP_ID).trim();
     rows.push({ group: "Configuration", name: "TIKTOK_APP_ID looks like an app id", status: /^\d{10,25}$/.test(id) ? "ok" : "bad",
@@ -86,6 +90,9 @@ export async function databaseChecks(db: SqlExecutor): Promise<Check[]> {
   const missingCols = EXPECTED_COLUMNS.map(([t, c]) => `${t}.${c}`).filter((c) => !have.has(c));
   rows.push({ group: "Database", name: "Columns from later migrations", status: missingCols.length ? "bad" : "ok",
     detail: missingCols.length ? `missing: ${missingCols.join(", ")} (run the migration SQL)` : "present" });
+  const fks = (await db.query("select conname from pg_constraint where conname = any($1::text[])", [FORBIDDEN_FKS])).map((r) => r.conname as string);
+  rows.push({ group: "Database", name: "Account deletion ready (migration 0018)", status: fks.length ? "bad" : "ok",
+    detail: fks.length ? `still present: ${fks.join(", ")}` : "yes" });
   const [pol] = await db.query("select count(*)::int as n from pg_policies where schemaname = 'public'");
   rows.push({ group: "Database", name: "Row-level security policies", status: pol!.n === EXPECTED_POLICIES ? "ok" : "warn",
     detail: `${pol!.n} (expected ${EXPECTED_POLICIES})` });

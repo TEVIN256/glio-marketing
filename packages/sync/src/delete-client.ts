@@ -1,5 +1,6 @@
 import type { SecretStore } from "./secrets.ts";
 import type { SqlExecutor } from "./sql.ts";
+import { dropUnusedTokens } from "./tokens.ts";
 
 /**
  * Delete a client and everything GLIO holds about it (ADR-029): ad accounts,
@@ -29,7 +30,7 @@ export interface DeleteClientResult {
 }
 
 export async function deleteClientData(
-  deps: { db: SqlExecutor; secrets: SecretStore },
+  deps: { db: SqlExecutor; secrets: SecretStore; revoke?: (accessToken: string) => Promise<void> },
   args: { workspaceId: string; clientId: string; deletedBy: string },
 ): Promise<DeleteClientResult> {
   const out = await deps.db.transaction(async (q) => {
@@ -61,20 +62,11 @@ export async function deleteClientData(
   });
   if (!out) return { deleted: false, clientName: null, counts: {}, secretsDeleted: 0, secretsFailed: 0 };
 
-  // Tokens: remove each one nothing else uses any more (after the data is gone, so a failure here
-  // can't leave a half-deleted client; a leftover secret is unusable without its ad account).
-  let secretsDeleted = 0;
-  let secretsFailed = 0;
-  for (const ref of out.refs) {
-    const [still] = await deps.db.query("select 1 from public.ad_account_credentials where secret_ref = $1 limit 1", [ref]);
-    if (still || ref.startsWith("demo://")) continue;
-    try {
-      await deps.secrets.delete?.(ref);
-      secretsDeleted += 1;
-    } catch {
-      secretsFailed += 1;
-    }
-  }
+  // Tokens nothing else uses any more: revoked at the platform (best effort) and deleted, after the data
+  // is gone, so a failure here can't leave a half-deleted client.
+  const t = await dropUnusedTokens(deps, out.refs);
+  const secretsDeleted = t.deleted;
+  const secretsFailed = t.failed;
   return { deleted: true, clientName: out.name, counts: out.counts, secretsDeleted, secretsFailed };
 }
 

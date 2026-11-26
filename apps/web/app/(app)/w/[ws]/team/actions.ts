@@ -8,6 +8,9 @@ import { describeError } from "@/lib/errors";
 import { renderInviteEmail } from "@/lib/invite-email";
 import { INVITE_LINK_COOKIE, newInviteToken } from "@/lib/invite-token";
 import { requireUser } from "@/lib/supabase/server";
+import { TikTokConnector } from "@glio/connectors";
+import { VaultSecretStore, deleteWorkspaceData } from "@glio/sync";
+import { serverDb } from "@/lib/server-db";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -117,4 +120,41 @@ export async function removeMember(formData: FormData) {
     workspace_id: ws, actor_kind: "user", actor_user_id: user.id, action: "member.removed", entity_type: "user", entity_id: member,
   });
   redirect(`/w/${ws}/team?done=removed`);
+}
+
+/** A revoke function for TikTok tokens when the app is configured (best effort; used by deletions). */
+function tiktokRevoke() {
+  if (!env.tiktokConfigured()) return undefined;
+  const connector = new TikTokConnector();
+  return async (accessToken: string) => {
+    await connector.revokeToken({ appId: env.tiktokAppId(), appSecret: env.tiktokAppSecret(), accessToken });
+  };
+}
+
+/**
+ * Delete the whole workspace and everything in it (owners only, typed name to confirm; ADR-037).
+ * The owner check runs under the user's own permissions before the server deletes.
+ */
+export async function deleteWorkspace(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const { supabase, user } = await requireUser();
+  const [{ data: me }, { data: workspace }] = await Promise.all([
+    supabase.from("memberships").select("role").eq("workspace_id", ws).eq("user_id", user.id).maybeSingle(),
+    supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
+  ]);
+  if (!me || me.role !== "owner" || !workspace) redirect(`/w/${ws}/team?e=forbidden#delete-ws`);
+  if (String(formData.get("confirm") ?? "").trim() !== workspace.name.trim()) redirect(`/w/${ws}/team?e=ws_confirm#delete-ws`);
+
+  let failure: string | null = null;
+  try {
+    const db = serverDb();
+    const r = await deleteWorkspaceData({ db, secrets: new VaultSecretStore(db), revoke: tiktokRevoke() }, { workspaceId: ws, deletedBy: user.id });
+    console.info(JSON.stringify({ event: "workspace_deleted", deleted: r.deleted, tokens: r.tokens }));
+  } catch (err) {
+    const d = describeError(err);
+    console.error(JSON.stringify({ event: "workspace_delete_failed", code: d.code, error: d.message }));
+    failure = d.code;
+  }
+  if (failure) redirect(`/w/${ws}/team?e=ws_delete&code=${encodeURIComponent(failure)}#delete-ws`);
+  redirect("/app?ws_deleted=1");
 }

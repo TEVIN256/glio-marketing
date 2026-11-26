@@ -25,7 +25,7 @@ export const COMPANY = {
   crNumber: "7042386917" as string | null,
 } as const;
 
-export const POLICY_UPDATED = "2026-11-24";
+export const POLICY_UPDATED = "2026-11-26";
 
 type Section = { heading: string; paragraphs: string[]; bullets?: string[] };
 
@@ -169,7 +169,7 @@ export const site = {
       {
         heading: "مدة الاحتفاظ والحذف",
         paragraphs: [
-          "نحتفظ ببيانات العميل (الحسابات الإعلانية المربوطة، والبيانات المتزامنة، والتقارير، وإعدادات الرسائل) ما دام العميل موجودًا في المنصة. يستطيع مالك مساحة العمل حذف العميل في أي وقت، فتُحذف فورًا كل بياناته ورموز الوصول إلى حساباته الإعلانية.",
+          "نحتفظ ببيانات العميل (الحسابات الإعلانية المربوطة، والبيانات المتزامنة، والتقارير، وإعدادات الرسائل) ما دام العميل موجودًا في المنصة. يستطيع مالك مساحة العمل حذف العميل أو مساحة العمل كاملة في أي وقت، فتُحذف فورًا كل البيانات ورموز الوصول إلى الحسابات الإعلانية (وتُلغى لدى المنصة). ويستطيع كل مستخدم حذف حسابه من صفحة «حسابك»، فيُحذف بريده وكلمة المرور وعضوياته.",
           "تُحذف الدعوات (وفيها البريد الإلكتروني للمدعو) بعد 90 يومًا من قبولها أو إلغائها أو انتهاء صلاحيتها، ويُحذف سجل إرسال التقارير (وفيه بريد المستلم) بعد 24 شهرًا. تبقى قائمة من ألغوا الاشتراك في الرسائل ما دام العميل موجودًا حتى نحترم اختيارهم.",
           "يُحتفظ بسجل التدقيق (من فعل ماذا ومتى) لأغراض الأمان والامتثال ولا يُعدَّل. قد تبقى البيانات المحذوفة في النسخ الاحتياطية لدى مزوّدينا لمدة محدودة حتى تُستبدل.",
         ],
@@ -376,7 +376,7 @@ export const site = {
       {
         heading: "Retention and deletion",
         paragraphs: [
-          "We keep a client's data (connected ad accounts, synced data, reports and email settings) for as long as the client exists in the platform. The workspace owner can delete a client at any time, which immediately deletes all of its data and the access tokens for its ad accounts.",
+          "We keep a client's data (connected ad accounts, synced data, reports and email settings) for as long as the client exists in the platform. The workspace owner can delete a client or the whole workspace at any time, which immediately deletes the data and the access tokens for its ad accounts (also revoked at the platform). Every user can delete their own account from the “Your account” page, which deletes their email, password and memberships.",
           "Invitations (which contain the invitee's email) are deleted 90 days after they are accepted, cancelled or expire, and the report delivery log (which contains recipients' emails) after 24 months. The list of people who unsubscribed from emails is kept while the client exists, so that their choice is respected.",
           "The audit log (who did what, and when) is kept for security and compliance and is never altered. Deleted data may remain in our providers' backups for a limited time until they are replaced.",
         ],

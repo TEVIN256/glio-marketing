@@ -15,6 +15,9 @@ export const env = {
   /** SERVER ONLY: direct Postgres connection for server-side writes. */
   databaseUrl: () => required("DATABASE_URL"),
   anthropicConfigured: () => Boolean(process.env.ANTHROPIC_API_KEY),
+  /** Supabase secret API key (SERVER ONLY): used only to delete a person's sign-in record. */
+  supabaseSecretKey: () => process.env.SUPABASE_SECRET_KEY ?? "",
+  accountDeletionConfigured: () => Boolean(process.env.SUPABASE_SECRET_KEY),
   demoMode: () => process.env.GLIO_DEMO_MODE === "1",
   /** TikTok Marketing API app (developer portal). The secret is SERVER ONLY. */
   tiktokAppId: () => required("TIKTOK_APP_ID"),

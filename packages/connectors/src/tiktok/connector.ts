@@ -150,9 +150,8 @@ export class TikTokConnector implements ReportingConnector {
     if (data.list.length > 1) {
       throw new PlatformError(`TikTok account totals returned ${data.list.length} rows, expected 1`, "tiktok", "bad_shape", false);
     }
-    // No row: we don't assume it means zero. Reconciliation decides what an
-    // empty answer means. TODO(verify) on a real account: TikTok doesn't document whether an
-    // inactive range returns no row or a row of zeros / "-" (both are handled).
+    // An inactive range comes back as one row of zeros (seen on a real account, 2026-11-26).
+    // No row at all is still handled: we don't assume it means zero; reconciliation decides.
     const m = data.list[0]?.metrics ?? {};
     return {
       endpoint: TIKTOK_REPORT_PATH,

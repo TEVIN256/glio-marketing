@@ -8,8 +8,10 @@
  * integrated report (params, metric names, string values, "-" for no value,
  * "YYYY-MM-DD 00:00:00" days, 30-day / 1000-row limits, page_info), campaign
  * get/status/update, enum values, and the error codes below (ADR-028).
- * Still to confirm on the first real account (TODO(verify) below): the totals
- * row for an inactive range, and the advertiser/info id limit.
+ * Confirmed on the first real account (2026-11-26): an account total over a range with no
+ * activity is ONE row of zeros (spend "0.00", impressions "0"), and campaign-day reports include
+ * zero rows for days a campaign didn't deliver. Still open (TODO(verify) below): the
+ * advertiser/info id limit (needs a login with more than 100 ad accounts).
  * v2.0 exists (reporting is a POST with advertiser_ids); v1.3 has no announced end date.
  */
 

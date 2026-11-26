@@ -1,4 +1,5 @@
 import { proposeChange } from "@/app/(app)/w/[ws]/approvals/actions";
+import { standing } from "@/lib/break-even";
 import type { CampaignRow } from "@/lib/dashboard";
 
 export interface ProposeLabels {
@@ -11,10 +12,12 @@ export interface CampaignTableProps {
   labels: { campaign: string; spend: string; share: string; impressions: string; clicks: string; ctr: string; conversions: string; cpa: string; purchaseValue: string; roas: string; none: string };
   /** Set when the viewer may propose changes (owners, managers, analysts). */
   propose?: { ws: string; client: string; pending: Set<string>; labels: ProposeLabels };
+  /** When the client's margin is set: ROAS cells say whether each campaign is above or below break-even. */
+  breakEven?: { marginBp: number; above: string; below: string } | null;
 }
 
 /** Campaigns for the period, by spend, with a share-of-spend bar (single hue, magnitude only). */
-export function CampaignTable({ rows, lang, labels, propose }: CampaignTableProps) {
+export function CampaignTable({ rows, lang, labels, propose, breakEven }: CampaignTableProps) {
   const cell = (v: { en: string; ar: string } | null) => (v ? <span className="num">{v[lang]}</span> : <span className="muted">—</span>);
   return (
     <div className="table-wrap">
@@ -55,7 +58,19 @@ export function CampaignTable({ rows, lang, labels, propose }: CampaignTableProp
                 )}
               </td>
               <td className="n">{cell(r.purchaseValue)}</td>
-              <td className="n">{cell(r.roas)}</td>
+              <td className="n">
+                {(() => {
+                  const st = breakEven && r.roasParts ? standing(BigInt(r.roasParts.value), BigInt(r.roasParts.spend), breakEven.marginBp) : null;
+                  if (!st || !r.roas) return cell(r.roas);
+                  const below = st === "below";
+                  return (
+                    <span className={`roas-mark ${below ? "bad" : "good"}`} title={below ? breakEven!.below : breakEven!.above}>
+                      <span aria-hidden="true">{below ? "▼" : "▲"}</span> <span className="num">{r.roas[lang]}</span>
+                      <span className="sr-only"> ({below ? breakEven!.below : breakEven!.above})</span>
+                    </span>
+                  );
+                })()}
+              </td>
               <td className="n">{cell(r.conversions)}</td>
               <td className="n">{cell(r.cpa)}</td>
               <td className="n">{cell(r.clicks)}</td>

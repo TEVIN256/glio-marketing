@@ -129,6 +129,10 @@ Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one 
 
 Owners open **https://www.glioagency.org/diagnostics**. It checks, live and without showing any secret value: required settings present (and the TikTok app id / secret format), the database at the latest migration (tables, functions, policy count `EXPECTED_POLICIES` in `apps/web/lib/system-check.ts`, which must be raised with each migration that adds policies), row-level security on every table, a Vault write → read → delete round trip (what connecting TikTok does), TikTok's API reachable, and failures recorded in the last 7 days (syncs, report emails, approved changes, syncs stuck running). Run it after every deploy that changes settings or migrations, and before connecting a client. Logs it can't see: Vercel → Logs (`daily_job`, `tiktok_*`, `*_failed` events).
 
+## Profitability (break-even ROAS)
+
+- Client page → "Profitability" (owners/managers): enter the client's approximate gross margin (%). GLIO shows break-even ROAS (100 ÷ margin), the period's ROAS, and an estimated gross profit after ad spend (TikTok-credited purchase value × margin − spend). The ROAS tile says "Break-even X · above/below break-even"; each campaign's ROAS is marked ▲ (above) or ▼ (below). Audit: `client.margin_updated`. ADR-035.
+
 ## Data retention and client deletion
 
 - **Delete a client** (owners): client page → "Delete client" at the bottom → type the client's name → "Delete client and all its data". Removes everything with that client's id (ad accounts, tokens in Vault, synced data, reports, share links, email schedule and log, unsubscribes, approvals, settings, client viewers). Audit: `client.deleted` with the name and record counts. Logs: `client_deleted` / `client_delete_failed`. Nothing changes in the TikTok account; to also cut GLIO's access there, the advertiser removes the app in TikTok.
@@ -352,6 +356,14 @@ select
   (select pg_get_constraintdef(oid) like '%intraday%' from pg_constraint
     where conname = 'sync_runs_kind_check')                                                            as intraday_kind, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                       as policies;      -- expect 50
+```
+
+### Diagnostic for 20261127000001_client_economics
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'client_economics') as economics_rls, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                      as policies;      -- expect 54
 ```
 
 ## Migration log

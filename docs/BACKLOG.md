@@ -71,12 +71,6 @@ actually sold.
     policy, a support channel, a testing video and Zid's review.
 - **Salla:** later, with the same design.
 
-### Break-even ROAS on the dashboard
-
-- Show a break-even line or marker on the ROAS tile and in the campaign table.
-- Break-even ROAS = 1 ÷ gross margin.
-- **Needs from the owner:** each client's approximate gross margin (a client setting, owners and managers edit).
-
 ## Later
 
 - **Report and figure views in the audit log.** Only client dashboards write `client.viewed` today (COMPLIANCE.md:

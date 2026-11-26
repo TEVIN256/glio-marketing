@@ -497,3 +497,17 @@ button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad)
 .disconnect-menu summary { color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; font-size: 0.78rem; }
 .disconnect-menu summary:hover { color: var(--bad); }
 .hourly-chart .key.partial { inline-size: 9px; block-size: 9px; border: 2px solid var(--accent); border-radius: 50%; margin-inline-start: 10px; }
+
+/* Break-even ROAS */
+.kpi-note { margin-block-start: 4px; font-size: 0.8rem; font-weight: 600; }
+.kpi-note.good { color: var(--good); }
+.kpi-note.bad { color: var(--bad); }
+.kpi-note.neutral { color: var(--muted); }
+.roas-mark { font-weight: 600; white-space: nowrap; }
+.roas-mark.good { color: var(--good); }
+.roas-mark.bad { color: var(--bad); }
+.roas-mark [aria-hidden] { font-size: 0.7em; }
+.profit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.profit-grid .today-tile .today-value.bad { color: var(--bad); }
+.profit-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.profit-form input { max-width: 120px; }

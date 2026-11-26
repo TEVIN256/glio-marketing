@@ -4,6 +4,7 @@ import { minorUnitDigits, todayIn } from "@glio/core";
 import { type Figure, METRIC_LABELS, METRIC_ORDER, type MetricId } from "@glio/reports";
 import { CampaignTable } from "@/components/app/CampaignTable";
 import { TodayPanel } from "@/components/app/TodayPanel";
+import { breakEvenRoas, marginToBasisPoints, profitAfterAds, standing } from "@/lib/break-even";
 import { HOUR_METRICS, type HourMetric, loadToday } from "@/lib/today";
 import { DateRange } from "@/components/app/DateRange";
 import { Kpi } from "@/components/app/Kpi";
@@ -19,7 +20,7 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
-import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
+import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, saveMargin, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
 import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
@@ -52,7 +53,7 @@ export default async function ClientDashboard({
   const hourMetric: HourMetric = HOUR_METRICS.includes(q.hm as HourMetric) ? (q.hm as HourMetric) : "spend";
   const keepAll: Record<string, string> = { ...keepRange, ...(requestedMetric === "spend" ? {} : { m: requestedMetric }) };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }, todayView] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }, todayView, { data: economics }] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -72,6 +73,7 @@ export default async function ClientDashboard({
       .eq("client_id", client).neq("kind", "intraday").order("started_at", { ascending: false }).limit(50),
     // Today so far (provisional): refreshed here when older than 10 minutes. Server read after the RLS check above.
     loadToday(serverDb(), client, { refresh: true }),
+    supabase.from("client_economics").select("gross_margin_pct").eq("client_id", client).maybeSingle(),
   ]);
   const sg = sgSettings ?? {
     enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
@@ -118,6 +120,14 @@ export default async function ClientDashboard({
   const { report, previousReport } = overview;
   const scope = report.figures.some((f) => f.scope === "total") ? "total" : report.channels[0]?.scope;
   const fig = (r: typeof report, m: MetricId): Figure | undefined => r.figures.find((f) => f.scope === scope && f.metric === m);
+  // Break-even ROAS (ADR-035): from the client's gross margin, if set.
+  const marginBp = marginToBasisPoints(economics?.gross_margin_pct as string | number | null | undefined);
+  const roasFig = fig(overview.report, "roas");
+  const roasParts = roasFig?.status === "value" && roasFig.value?.kind === "ratio"
+    ? { value: BigInt(roasFig.value.numerator), spend: BigInt(roasFig.value.denominator) } : null;
+  const roasStanding = marginBp && roasParts ? standing(roasParts.value, roasParts.spend, marginBp) : null;
+  const breakEvenText = marginBp ? breakEvenRoas(marginBp) : null;
+  const profit = marginBp && roasParts && overview.currency ? profitAfterAds(roasParts.value, roasParts.spend, marginBp) : null;
   const recon = report.channels.map((c) => c.reconciliation);
   const reconState = recon.includes("drift") ? "drift" : recon.length === 0 ? null : recon.every((r) => r === "ok") ? "ok" : "other";
 
@@ -162,6 +172,8 @@ export default async function ClientDashboard({
       )}
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
       {q.tt === "cancelled" && <p className="notice" role="status">{t.tiktokConnectCancelled}</p>}
+      {q.pm === "saved" && <p className="notice" role="status">{t.marginSaved}</p>}
+      {q.e === "margin" && <p className="notice error" role="alert">{t.marginError}</p>}
       {q.tt === "disconnected" && (
         <p className={q.r === "failed" ? "notice warn" : "notice"} role="status">
           {t.tiktokDisconnected}{" "}
@@ -296,6 +308,10 @@ export default async function ClientDashboard({
             comparedTo={fill(t.vsPrevious, days)}
             missingLabel={!overview.hasData ? t.noDataDay : fig(report, m)?.status === "not_applicable" ? t.notApplicable
               : someDaysMissing(m) ? t.notProvidedSomeDays : t.notProvided}
+            note={m === "roas" && breakEvenText && roasStanding ? {
+              text: `${t.breakEven} ${breakEvenText} · ${roasStanding === "below" ? t.belowBreakEven : t.aboveBreakEven}`,
+              tone: roasStanding === "below" ? "bad" : "good",
+            } : null}
           />
         ))}
       </section>
@@ -356,6 +372,7 @@ export default async function ClientDashboard({
               newBudget: t.newDailyBudget, reason: t.reasonPlaceholder, pending: t.pendingBadge,
             },
           } : undefined}
+          breakEven={marginBp ? { marginBp, above: t.aboveBreakEven, below: t.belowBreakEven } : null}
         />
       </section>
       </>)}
@@ -431,6 +448,42 @@ export default async function ClientDashboard({
           ))}
         </section>
       </div>
+
+      <section id="profit" className="card stack" aria-labelledby="profit-h">
+        <div className="card-head"><h2 id="profit-h">{t.profitTitle}</h2></div>
+        <p className="muted">{t.profitIntro}</p>
+        {marginBp && breakEvenText ? (
+          <div className="profit-grid">
+            <div className="today-tile"><div className="kpi-label">{t.grossMargin}</div>
+              <div className="today-value"><span className="num">{String(economics!.gross_margin_pct).replace(/\.00$/, "")}%</span></div></div>
+            <div className="today-tile"><div className="kpi-label">{t.breakEvenRoas}</div>
+              <div className="today-value"><span className="num">{breakEvenText}</span></div></div>
+            <div className="today-tile"><div className="kpi-label">{t.yourRoas}</div>
+              <div className={`today-value ${roasStanding === "below" ? "bad" : ""}`}>
+                {roasFig?.display ? <span className="num">{roasFig.display[lang]}</span> : <span className="muted">—</span>}
+              </div></div>
+            <div className="today-tile"><div className="kpi-label">{t.profitAfterAds}</div>
+              <div className={`today-value ${profit !== null && profit < 0n ? "bad" : ""}`}>
+                {profit !== null && overview.currency ? <span className="num">{formatMoney(String(profit), overview.currency, lang)}</span> : <span className="muted">—</span>}
+              </div></div>
+          </div>
+        ) : (
+          <p className="notice">{t.profitNotSet}</p>
+        )}
+        {marginBp && <p className="fine-print">{t.profitNote}</p>}
+        {access.canManage && (
+          <form action={saveMargin} className="profit-form">
+            <input type="hidden" name="ws" value={ws} />
+            <input type="hidden" name="client" value={client} />
+            <div>
+              <label htmlFor="margin">{t.grossMarginInput}</label>
+              <input id="margin" name="margin" inputMode="decimal" dir="ltr" required placeholder="40"
+                defaultValue={economics ? String(economics.gross_margin_pct).replace(/\.00$/, "") : ""} />
+            </div>
+            <button type="submit" className="secondary">{t.save}</button>
+          </form>
+        )}
+      </section>
 
       <section id="guardrails" className="card stack" aria-labelledby="guardrails-h">
         <div className="card-head">

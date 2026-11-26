@@ -46,6 +46,7 @@ beforeAll(async () => {
     for (const cid of [clientA1, clientA2]) {
       await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-a@example.test}')", [wsA, cid]);
       await q("insert into client_guardrails (workspace_id, client_id, max_daily_budget_minor) values ($1, $2, 50000)", [wsA, cid]);
+      await q("insert into client_economics (workspace_id, client_id, gross_margin_pct) values ($1, $2, 40)", [wsA, cid]);
       await q("insert into suggestion_settings (workspace_id, client_id) values ($1, $2)", [wsA, cid]);
     }
     await q("insert into notification_settings (workspace_id, user_id, approvals_email) values ($1, $2, true)", [wsA, alice]);
@@ -56,6 +57,7 @@ beforeAll(async () => {
     clientB1 = (await one(q, "insert into clients (workspace_id, name) values ($1, 'Test Client B1') returning id", [wsB])).id;
     await q("insert into ad_accounts (workspace_id, client_id, platform, external_id) values ($1, $2, 'tiktok', 'tt-b1')", [wsB, clientB1]);
     await q("insert into approval_requests (workspace_id, client_id, kind, requested_by) values ($1, $2, 'campaign.launch', $3)", [wsB, clientB1, bob]);
+    await q("insert into client_economics (workspace_id, client_id, gross_margin_pct) values ($1, $2, 35)", [wsB, clientB1]);
     await q("insert into report_schedules (workspace_id, client_id, frequency, recipients) values ($1, $2, 'weekly', '{reports-b@example.test}')", [wsB, clientB1]);
     await q("insert into client_guardrails (workspace_id, client_id) values ($1, $2)", [wsB, clientB1]);
     await q("insert into suggestion_settings (workspace_id, client_id, enabled) values ($1, $2, false)", [wsB, clientB1]);

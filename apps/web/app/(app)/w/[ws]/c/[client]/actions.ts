@@ -11,6 +11,7 @@ import { describeError } from "@/lib/errors";
 import { OAUTH_MAX_AGE_SECONDS, TIKTOK_OAUTH_COOKIE, newPendingConnection } from "@/lib/oauth-state";
 import { serverDb } from "@/lib/server-db";
 import { loadToday } from "@/lib/today";
+import { marginToBasisPoints } from "@/lib/break-even";
 import { syncClientTikTok } from "@/lib/tiktok-sync";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -287,4 +288,26 @@ export async function disconnectTikTokAccount(formData: FormData) {
     target = `${base}?e=tiktok&code=${encodeURIComponent(d.code)}`;
   }
   redirect(target);
+}
+
+/** Save the client's approximate gross margin (owners/managers; RLS enforces it too). Empty = remove. */
+export async function saveMargin(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden#profit`);
+  const bp = marginToBasisPoints(String(formData.get("margin") ?? ""));
+  if (bp === null) redirect(`${base}?e=margin#profit`);
+  const pct = (bp / 100).toFixed(2);
+  const { error } = await access.supabase.from("client_economics").upsert(
+    { client_id: client, workspace_id: ws, gross_margin_pct: pct, updated_by: access.user.id, updated_at: new Date().toISOString() },
+    { onConflict: "client_id" },
+  );
+  if (error) redirect(`${base}?e=margin#profit`);
+  await access.supabase.from("audit_log").insert({
+    workspace_id: ws, actor_kind: "user", actor_user_id: access.user.id, action: "client.margin_updated",
+    entity_type: "client", entity_id: client, metadata: { gross_margin_pct: pct },
+  });
+  redirect(`${base}?pm=saved#profit`);
 }

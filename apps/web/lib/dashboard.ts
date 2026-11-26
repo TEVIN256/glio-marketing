@@ -36,6 +36,8 @@ export interface CampaignRow {
   cpa: { en: string; ar: string } | null;
   purchaseValue: { en: string; ar: string } | null;
   roas: { en: string; ar: string } | null;
+  /** Exact parts of ROAS (minor units), for comparing with break-even. */
+  roasParts: { value: string; spend: string } | null;
 }
 
 export interface Overview {
@@ -134,6 +136,7 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
       cpa: spend !== null && conv ? both((l) => formatMoney(BigInt(roundRatio(spend * 10_000n, conv, 0)), r.currency, l, "latn")) : null,
       purchaseValue: value === null ? null : both((l) => formatMoney(value, r.currency, l, "latn")),
       roas: value !== null && spend ? both((l) => formatDecimal(roundRatio(value, spend, 2), l, "latn")) : null,
+      roasParts: value !== null && spend ? { value: String(value), spend: String(spend) } : null,
     };
   });
 

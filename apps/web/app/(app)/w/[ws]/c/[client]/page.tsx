@@ -83,6 +83,10 @@ export default async function ClientDashboard({
 
   const tiktokAccounts = (tiktokRows ?? []).filter((a) => a.external_id !== DEMO_EXTERNAL_ID);
   const syncs = accountSyncs(tiktokAccounts, (runRows ?? []) as SyncRunRow[]);
+  // A figure missing only for some days (e.g. synced before GLIO fetched it): say so, and that a sync fills it in.
+  const partial = (metric: MetricId) => Boolean(fig(overview.report, metric)?.reason?.includes("for some days"));
+  const someDaysMissing = (m: MetricId) =>
+    fig(overview.report, m)?.status === "not_provided" && (partial(m) || (m === "roas" && partial("purchase_value")) || (m === "cpa" && partial("conversions")));
   const state = connectionState(tiktokAccounts, syncs, overview.hasData);
   const lastSuccess = [...syncs.values()].map((s) => s.lastSucceededAt).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
   const canSync = access.canManage && tiktokAccounts.some((a) => a.status === "active");
@@ -267,7 +271,8 @@ export default async function ClientDashboard({
             delta={figureDelta(fig(report, m), fig(previousReport, m))}
             lang={lang}
             comparedTo={fill(t.vsPrevious, days)}
-            missingLabel={!overview.hasData ? t.noDataDay : fig(report, m)?.status === "not_applicable" ? t.notApplicable : t.notProvided}
+            missingLabel={!overview.hasData ? t.noDataDay : fig(report, m)?.status === "not_applicable" ? t.notApplicable
+              : someDaysMissing(m) ? t.notProvidedSomeDays : t.notProvided}
           />
         ))}
       </section>

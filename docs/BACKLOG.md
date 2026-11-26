@@ -22,8 +22,38 @@ actually sold.
   - an OAuth "Connect Zid" flow;
   - a daily sync, optionally order webhooks;
   - a migration for store daily totals.
-- **Open questions:** whether Zid exposes an order's traffic source/UTM (per-channel attribution); Salla later with
-  the same design.
+- **Research (2026-11-26).** Sources: search excerpts of docs.zid.sa and help-partner.zid.sa (the pages themselves
+  were not reachable from the build environment), plus Zid's official GitHub (sdk-python, sample apps). To confirm on a
+  development store before relying on it.
+  - **OAuth:**
+    - `https://oauth.zid.sa/oauth/authorize` (code flow, `state`), then `POST https://oauth.zid.sa/oauth/token`.
+    - The token response contains `authorization`, `access_token`, `refresh_token` and `expires_in` (about 1 year).
+    - API calls send `Authorization: Bearer <authorization>` plus `X-Manager-Token: <access_token>`.
+    - Refresh before expiry. Uninstall revokes the tokens.
+  - **Scopes:** `orders.read` and `third_store_details_read`.
+  - **Orders:**
+    - `GET https://api.zid.sa/v1/managers/store/orders`, paginated with `page`/`per_page` (max 100).
+    - Date filter is on the creation date. The parameter name (`date_from` or `dateFrom`) is unconfirmed.
+    - Statuses: `new`, `preparing`, `ready`, `indelivery`, `delivered`, `cancelled`, `reversed`/`partially_reversed`.
+    - `payment_status`: `pending`, `paid`, `refunded`, `voided`.
+    - Refunds are reverse orders and credit notes.
+  - **No sales-summary endpoint:** daily totals must be summed from orders.
+  - **Personal data:** every order includes customer details, so strip them on ingest and store only aggregates.
+  - **Attribution:** no UTM or traffic-source fields (`source` is the sales channel only). So the first version gives
+    overall ROAS and the tracking check, not per-channel attribution.
+  - **Store details:** `GET /v1/managers/account/store` (timezone) and `/account/store/localization` (currency). The old
+    `/managers/profile` endpoint was retired on 2026-09-30.
+  - **Webhooks:** `order.create`, `order.status.update` and `order.payment_status.update`. They carry no signature (only
+    optional Basic Auth), so the daily sync stays the source of truth.
+  - **Rate limit:** 60 requests/min per app per store.
+  - **Unconfirmed:** the time zone of `created_at`, and how partial refunds appear in amounts.
+- **Access route:**
+  - **Private app per merchant (start here):** Partner Dashboard → My Apps → Create → Private, using the merchant's
+    Store ID. No Zid review. The merchant's plan must include API access ("Professional", or the "API Access" /
+    "Private Connection" add-on), which may be a cost for the merchant.
+  - **Public App Market app (later, to scale):** needs a signed partnership agreement, pricing plans, a privacy
+    policy, a support channel, a testing video and Zid's review.
+- **Salla:** later, with the same design.
 
 ### Break-even ROAS on the dashboard
 

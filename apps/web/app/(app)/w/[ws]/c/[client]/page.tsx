@@ -19,7 +19,7 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
-import { connectTikTok, deleteClient, generateReport, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
+import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
 import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
@@ -162,6 +162,13 @@ export default async function ClientDashboard({
       )}
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
       {q.tt === "cancelled" && <p className="notice" role="status">{t.tiktokConnectCancelled}</p>}
+      {q.tt === "disconnected" && (
+        <p className={q.r === "failed" ? "notice warn" : "notice"} role="status">
+          {t.tiktokDisconnected}{" "}
+          {q.r === "revoked" ? t.tiktokRevoked : q.r === "kept" ? t.tiktokTokenShared : q.r === "failed" ? t.tiktokRevokeFailed : null}
+          {Number(q.x) > 0 && <> {fill(t.tiktokRequestsExpired, q.x)}</>}
+        </p>
+      )}
       {q.ap === "requested" && (
         <p className="notice" role="status">{t.apResult_requested} <a href={`/w/${ws}/approvals`}>{t.navApprovals}</a></p>
       )}
@@ -392,6 +399,18 @@ export default async function ClientDashboard({
                   <span className="account-sync">
                     <span className={`badge ${a.status === "active" ? "ok" : a.status === "error" ? "drift" : "other"}`}>{statusLabel[a.status] ?? a.status}</span>
                     <AccountSyncLine sync={syncs.get(a.id)} t={t} lang={lang} />
+                    {access.canManage && a.status === "active" && (
+                      <details className="row-menu disconnect-menu">
+                        <summary className="link-button">{t.tiktokDisconnect}</summary>
+                        <form className="row-menu-panel stack" action={disconnectTikTokAccount}>
+                          <input type="hidden" name="ws" value={ws} />
+                          <input type="hidden" name="client" value={client} />
+                          <input type="hidden" name="account" value={a.id} />
+                          <p className="small">{t.tiktokDisconnectExplain}</p>
+                          <button type="submit" className="secondary danger">{t.tiktokDisconnectConfirm}</button>
+                        </form>
+                      </details>
+                    )}
                   </span>
                 </li>
               ))}

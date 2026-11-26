@@ -15,6 +15,8 @@
 
 export const TIKTOK_API_BASE = "https://business-api.tiktok.com/open_api/v1.3"; // doc 1738373164380162
 export const TIKTOK_AUTH_URL = "https://business-api.tiktok.com/portal/auth"; // app_id, redirect_uri, state; doc 1738373141733378
+/** Invalidates a long-term token for every ad account it covers (doc 1739965949088770). */
+export const TIKTOK_REVOKE_PATH = "/oauth2/revoke_token/";
 export const TIKTOK_TOKEN_PATH = "/oauth2/access_token/"; // {app_id, secret, auth_code}; long-term token, no refresh
 export const TIKTOK_REPORT_PATH = "/report/integrated/get/"; // doc 1740302848100353
 /** Advertisers the access token may use (app_id + secret as query params, token in header). Doc 1738455508553729. */

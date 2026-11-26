@@ -4,7 +4,7 @@ import {
 } from "../types.ts";
 import {
   TIKTOK_ADVERTISER_GET_PATH, TIKTOK_ADVERTISER_INFO_FIELDS, TIKTOK_ADVERTISER_INFO_MAX_IDS, TIKTOK_ADVERTISER_INFO_PATH,
-  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_PURCHASE_VALUE_METRIC, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_TOKEN_PATH,
+  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_PURCHASE_VALUE_METRIC, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_REVOKE_PATH, TIKTOK_TOKEN_PATH,
   accountTotalsParams, isNoValue, campaignDailyReportParams, campaignHourlyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
   type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.ts";
@@ -70,6 +70,20 @@ export class TikTokConnector implements ReportingConnector {
    * The advertisers this token may use, with name, currency and timezone.
    * The app secret goes only to TikTok and is redacted from any error text.
    */
+  /**
+   * Revoke a long-term token at TikTok: it stops working for EVERY ad account it covers.
+   * Returns the advertiser ids TikTok says the token can no longer access.
+   */
+  async revokeToken(args: { appId: string; appSecret: string; accessToken: string }): Promise<string[]> {
+    const res = await this.fetch(this.apiBase + TIKTOK_REVOKE_PATH, {
+      method: "POST",
+      headers: { "Access-Token": args.accessToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id: args.appId, secret: args.appSecret, access_token: args.accessToken }),
+    });
+    const body = await this.readEnvelope<{ advertiser_ids?: unknown[] }>(res, TIKTOK_REVOKE_PATH, [args.appSecret, args.accessToken]);
+    return (body.data?.advertiser_ids ?? []).map(String);
+  }
+
   async listAdvertisers(args: { appId: string; appSecret: string; accessToken: string }): Promise<TikTokAdvertiser[]> {
     const secrets = [args.appSecret, args.accessToken];
     const listed = await this.get<TikTokAdvertiserListData>(

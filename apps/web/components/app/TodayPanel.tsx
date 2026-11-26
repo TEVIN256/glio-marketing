@@ -59,8 +59,8 @@ export function TodayPanel({ view, metric, lang, t, hrefFor, refresh }: {
           ))}
         </nav>
       </div>
-      <HourlyChart today={view.hourly[metric].today} yesterday={view.hourly[metric].yesterday}
-        labels={{ today: t.todayLegendToday, yesterday: t.todayLegendYesterday, none: t.todayNoHours }}
+      <HourlyChart today={view.hourly[metric].today} yesterday={view.hourly[metric].yesterday} currentHour={view.currentHour}
+        labels={{ today: t.todayLegendToday, yesterday: t.todayLegendYesterday, none: t.todayNoHours, inProgress: t.todayInProgress }}
         title={`${metricLabel[metric]} · ${t.todayByHour}`} />
       <p className="fine-print">{t.todayNote.replace("{tz}", view.timezone)}</p>
 
@@ -104,9 +104,9 @@ function compact(v: number): string {
 }
 
 /** 24 hours left to right (also in Arabic: a time axis), today solid, yesterday faint and dashed. */
-function HourlyChart({ today, yesterday, labels, title }: {
-  today: Array<number | null>; yesterday: Array<number | null>;
-  labels: { today: string; yesterday: string; none: string }; title: string;
+function HourlyChart({ today, yesterday, currentHour, labels, title }: {
+  today: Array<number | null>; yesterday: Array<number | null>; currentHour: number;
+  labels: { today: string; yesterday: string; none: string; inProgress: string }; title: string;
 }) {
   const W = 720, H = 180, L = 44, R = 10, TOP = 10, B = 24;
   const values = [...today, ...yesterday].filter((v): v is number => v !== null);
@@ -116,8 +116,14 @@ function HourlyChart({ today, yesterday, labels, title }: {
   const y = (v: number) => TOP + (H - TOP - B) * (1 - v / max);
   const path = (s: Array<number | null>) => s.map((v, h) => (v === null ? "" : `${s[h - 1] == null ? "M" : "L"}${x(h).toFixed(1)},${y(v).toFixed(1)}`)).join(" ");
   const lastToday = today.reduce<number>((last, v, h) => (v === null ? last : h), -1);
-  const area = lastToday >= 0 && today.slice(0, lastToday + 1).every((v) => v !== null)
-    ? `${path(today)} L${x(lastToday).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z` : "";
+  // The hour now in progress is still filling up: draw it apart (dashed, hollow point) so it doesn't read as a drop.
+  const partial = lastToday >= 1 && lastToday === currentHour;
+  const settled = partial ? today.map((v, h) => (h === lastToday ? null : v)) : today;
+  const lastSettled = partial ? lastToday - 1 : lastToday;
+  const area = lastSettled >= 0 && settled.slice(0, lastSettled + 1).every((v) => v !== null)
+    ? `${path(settled)} L${x(lastSettled).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z` : "";
+  const pv = partial ? today[lastToday]! : 0;
+  const prev = partial ? today[lastToday - 1] : null;
   return (
     <figure className="hourly-chart" dir="ltr">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} preserveAspectRatio="none">
@@ -132,7 +138,14 @@ function HourlyChart({ today, yesterday, labels, title }: {
         ))}
         <path d={path(yesterday)} className="line-yesterday" />
         {area && <path d={area} className="area-today" />}
-        <path d={path(today)} className="line-today" />
+        <path d={path(settled)} className="line-today" />
+        {partial && prev != null && (
+          <g>
+            <path d={`M${x(lastToday - 1).toFixed(1)},${y(prev).toFixed(1)} L${x(lastToday).toFixed(1)},${y(pv).toFixed(1)}`} className="line-partial" />
+            <circle cx={x(lastToday)} cy={y(pv)} r={4} className="point-partial" />
+            <text x={x(lastToday)} y={y(pv) - 9} textAnchor="middle" className="tick partial-label">{labels.inProgress}</text>
+          </g>
+        )}
       </svg>
       <figcaption className="legend">
         <span className="key today" /> {labels.today} <span className="key yesterday" /> {labels.yesterday}

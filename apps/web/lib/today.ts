@@ -28,6 +28,8 @@ export interface TodayCampaign {
 export interface TodayView {
   day: string;
   timezone: string;
+  /** The hour now in progress (account time zone): its figures are still growing. */
+  currentHour: number;
   /** Last successful refresh of today (ISO), or null if never. */
   updatedAt: string | null;
   /** The latest refresh failed after the last success. */
@@ -174,7 +176,7 @@ export async function loadToday(db: SqlExecutor, clientId: string, opts: { refre
   const hourly = Object.fromEntries(HOUR_METRICS.map((m) => [m, { today: series(day, m), yesterday: series(addDays(day, -1), m) }])) as TodayView["hourly"];
 
   return {
-    day, timezone, updatedAt: lastOk ? new Date(lastOk.at).toISOString() : null, failure, currency,
+    day, timezone, currentHour: Math.floor(minutesSinceMidnight(timezone) / 60), updatedAt: lastOk ? new Date(lastOk.at).toISOString() : null, failure, currency,
     totals: {
       spend: spend === null ? null : money(spend, currency!),
       purchaseValue: value === null ? null : money(value, currency!),

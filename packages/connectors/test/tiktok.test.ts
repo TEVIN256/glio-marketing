@@ -155,3 +155,21 @@ describe("TikTokConnector.fetchAccountTotals", () => {
     ).rejects.toThrow(/expected 1/);
   });
 });
+
+describe("TikTokConnector.revokeToken", () => {
+  it("posts app id, secret and the token (token also in the header), and never leaks them in errors", async () => {
+    const { fetch, calls } = fakeFetch([
+      { status: 200, body: { code: 0, message: "OK", data: { app_id: "app-1", advertiser_ids: ["7000000000000000001"] } } },
+      { status: 200, body: { code: 40105, message: `bad token ${TOKEN} secret-xyz`, data: {} } },
+    ]);
+    const c = new TikTokConnector({ fetch });
+    expect(await c.revokeToken({ appId: "app-1", appSecret: "secret-xyz", accessToken: TOKEN })).toEqual(["7000000000000000001"]);
+    expect(calls[0]!.url).toBe("https://business-api.tiktok.com/open_api/v1.3/oauth2/revoke_token/");
+    expect(calls[0]!.init).toMatchObject({ method: "POST", headers: { "Access-Token": TOKEN } });
+    expect(JSON.parse(calls[0]!.init!.body!)).toEqual({ app_id: "app-1", secret: "secret-xyz", access_token: TOKEN });
+    const err = await c.revokeToken({ appId: "app-1", appSecret: "secret-xyz", accessToken: TOKEN }).catch((e) => e);
+    expect(err.code).toBe("tiktok_40105");
+    expect(err.message).not.toContain(TOKEN);
+    expect(err.message).not.toContain("secret-xyz");
+  });
+});

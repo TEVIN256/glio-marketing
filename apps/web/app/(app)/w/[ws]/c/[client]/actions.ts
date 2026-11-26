@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DEMO_EXTERNAL_ID, TikTokConnector, demoTikTokFetch } from "@glio/connectors";
 import { ClaudeCommentaryModel, ResendMailer, createReportSnapshot, deliverReport, normalizeRecipients } from "@glio/reports";
-import { InMemorySecretStore, VaultSecretStore, deleteClientData, reconcile, runSync } from "@glio/sync";
+import { InMemorySecretStore, VaultSecretStore, deleteClientData, disconnectAdAccount, reconcile, runSync } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
@@ -254,4 +254,37 @@ export async function refreshToday(formData: FormData) {
   if (!access.canView) redirect(`${base}?e=forbidden`);
   await loadToday(serverDb(), client, { refresh: true, force: true });
   redirect(`${back.startsWith(`${base}?`) || back === base ? back : base}#today`);
+}
+
+/**
+ * Disconnect one TikTok ad account (owners/managers; ADR-034). Its history stays;
+ * the token is revoked at TikTok unless another connected account shares it.
+ */
+export async function disconnectTikTokAccount(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const accountId = String(formData.get("account"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden`);
+
+  let target = `${base}?e=tiktok&code=NOT_FOUND`;
+  try {
+    const db = serverDb();
+    const connector = new TikTokConnector();
+    const revoke = env.tiktokConfigured()
+      ? async (accessToken: string) => { await connector.revokeToken({ appId: env.tiktokAppId(), appSecret: env.tiktokAppSecret(), accessToken }); }
+      : undefined;
+    const r = await disconnectAdAccount({ db, secrets: new VaultSecretStore(db), revoke }, { workspaceId: ws, clientId: client, adAccountId: accountId, userId: access.user.id });
+    if (r.disconnected) {
+      const how = r.revokedAtPlatform ? "revoked" : r.revokeError ? "failed" : "kept";
+      console.info(JSON.stringify({ event: "tiktok_disconnected", client, token: how, revoke_error: r.revokeError }));
+      target = `${base}?tt=disconnected&r=${how}&x=${r.expiredRequests}`;
+    }
+  } catch (err) {
+    const d = describeError(err);
+    console.error(JSON.stringify({ event: "tiktok_disconnect_failed", client, code: d.code, error: d.message }));
+    target = `${base}?e=tiktok&code=${encodeURIComponent(d.code)}`;
+  }
+  redirect(target);
 }

@@ -81,9 +81,6 @@ actually sold.
 
 - **Report and figure views in the audit log.** Only client dashboards write `client.viewed` today (COMPLIANCE.md:
   "Partial").
-- **Disconnect TikTok from inside GLIO**, including token revocation at TikTok (`/oauth2/revoke_token/`).
-  - Deleting a client removes GLIO's data and the Vault token.
-  - TikTok-side revocation is still manual.
 - **Workspace and user-account deletion.** Currently on request by email (COMPLIANCE.md).
 - **Other purchase values:**
   - in-app: `total_purchase_value`

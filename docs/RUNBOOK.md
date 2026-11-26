@@ -129,6 +129,11 @@ Links go to `/auth/confirm?token_hash=…&type=email|recovery`: a page with one 
 
 Owners open **https://www.glioagency.org/diagnostics**. It checks, live and without showing any secret value: required settings present (and the TikTok app id / secret format), the database at the latest migration (tables, functions, policy count `EXPECTED_POLICIES` in `apps/web/lib/system-check.ts`, which must be raised with each migration that adds policies), row-level security on every table, a Vault write → read → delete round trip (what connecting TikTok does), TikTok's API reachable, and failures recorded in the last 7 days (syncs, report emails, approved changes, syncs stuck running). Run it after every deploy that changes settings or migrations, and before connecting a client. Logs it can't see: Vercel → Logs (`daily_job`, `tiktok_*`, `*_failed` events).
 
+## Activity (audit log)
+
+- Sidebar → Activity (owners/managers of the workspace): the audit log, newest first, 200 per page, filter by client and kind (viewing data / changes / access and sharing). Labels for every action live in `apps/web/lib/activity.ts` (a test fails if a new action has none).
+- Reads recorded: `client.viewed`, `report.viewed`, `figure.viewed`, `report.share_viewed` (share links: link and time only). ADR-036.
+
 ## Profitability (break-even ROAS)
 
 - Client page → "Profitability" (owners/managers): enter the client's approximate gross margin (%). GLIO shows break-even ROAS (100 ÷ margin), the period's ROAS, and an estimated gross profit after ad spend (TikTok-credited purchase value × margin − spend). The ROAS tile says "Break-even X · above/below break-even"; each campaign's ROAS is marked ▲ (above) or ▼ (below). Audit: `client.margin_updated`. ADR-035.

@@ -17,7 +17,7 @@ export default async function SnapshotPage({
   const { ws, client, snapshot } = await params;
   const q = await searchParams;
   const { lang, t } = await getDict();
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
 
   const [{ data: s }, { data: clientRow }, { data: workspace }] = await Promise.all([
     supabase.from("report_snapshots").select("id, date_from, date_to, report, report_sha256, commentary_id, created_at")
@@ -29,6 +29,10 @@ export default async function SnapshotPage({
   const { data: c } = await supabase.from("ai_commentary").select("text_ar, text_en, source").eq("id", s.commentary_id).maybeSingle();
   if (!c) notFound();
   const access = await clientAccess(ws, client);
+  await supabase.from("audit_log").insert({
+    workspace_id: ws, actor_kind: "user", actor_user_id: user.id, action: "report.viewed",
+    entity_type: "report_snapshot", entity_id: snapshot, metadata: { client_id: client },
+  });
   const { data: shares } = await supabase.from("report_shares")
     .select("id, created_at, expires_at, revoked_at, view_count, last_viewed_at, created_by_label")
     .eq("snapshot_id", snapshot).order("created_at", { ascending: false }).limit(20);

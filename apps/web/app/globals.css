@@ -511,3 +511,7 @@ button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad)
 .profit-grid .today-tile .today-value.bad { color: var(--bad); }
 .profit-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
 .profit-form input { max-width: 120px; }
+
+/* Activity (audit log) */
+.activity-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.activity-filters select { min-width: 180px; }

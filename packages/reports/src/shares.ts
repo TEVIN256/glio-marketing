@@ -46,7 +46,7 @@ export interface SharedReport {
 export async function openShare(db: SqlExecutor, token: string): Promise<SharedReport | null> {
   if (!isShareToken(token)) return null;
   const [r] = await db.query(
-    `select sh.id, c.name as client_name, s.report, s.created_at::text as created_at, sh.expires_at::text as expires_at,
+    `select sh.id, sh.workspace_id, sh.client_id, sh.snapshot_id, c.name as client_name, s.report, s.created_at::text as created_at, sh.expires_at::text as expires_at,
             a.text_ar, a.text_en, a.source
      from public.report_shares sh
      join public.report_snapshots s on s.id = sh.snapshot_id
@@ -57,6 +57,12 @@ export async function openShare(db: SqlExecutor, token: string): Promise<SharedR
   );
   if (!r) return null;
   await db.query("update public.report_shares set view_count = view_count + 1, last_viewed_at = now() where id = $1", [r.id]);
+  // A read of client data by someone outside GLIO: recorded (which link, when), never who or from where.
+  await db.query(
+    `insert into public.audit_log (workspace_id, actor_kind, actor_label, action, entity_type, entity_id, metadata)
+     values ($1, 'system', 'share-link', 'report.share_viewed', 'report_snapshot', $2, $3)`,
+    [r.workspace_id, r.snapshot_id, JSON.stringify({ share_id: r.id, client_id: r.client_id })],
+  );
   return {
     clientName: r.client_name,
     report: r.report as ReportModel,

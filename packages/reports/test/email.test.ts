@@ -287,6 +287,12 @@ describe("report share links", () => {
     await openShare(exec, token);
     const [row] = await db.as(superuser, (q) => q("select view_count, last_viewed_at is not null as seen from report_shares where id = $1", [id]));
     expect(row).toEqual({ view_count: 2, seen: true });
+    // Each view is in the audit log (which link and when; never who or from where).
+    const audits = await db.as(superuser, (q) => q(
+      "select actor_kind, actor_label, metadata from audit_log where action = 'report.share_viewed' order by id"));
+    expect(audits.length).toBe(2);
+    expect(audits[0]).toMatchObject({ actor_kind: "system", actor_label: "share-link" });
+    expect(Object.keys(audits[0]!.metadata).sort()).toEqual(["client_id", "share_id"]);
 
     expect(await openShare(exec, "x".repeat(43))).toBeNull();
     expect(await openShare(exec, "not-a-token")).toBeNull();

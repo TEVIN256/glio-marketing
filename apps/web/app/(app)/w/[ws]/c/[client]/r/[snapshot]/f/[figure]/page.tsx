@@ -15,12 +15,17 @@ export default async function FigurePage({
   const { ws, client, snapshot, figure } = await params;
   const figureId = decodeURIComponent(figure);
   const { lang, t } = await getDict();
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
 
   const { data: s } = await supabase.from("report_snapshots").select("id, report").eq("id", snapshot).eq("client_id", client).maybeSingle();
   if (!s) notFound();
   const f = (s.report as ReportModel).figures.find((x) => x.id === figureId);
   if (!f) notFound();
+  // Opening a figure's source shows raw platform data: recorded like any read of client data.
+  await supabase.from("audit_log").insert({
+    workspace_id: ws, actor_kind: "user", actor_user_id: user.id, action: "figure.viewed",
+    entity_type: "report_snapshot", entity_id: snapshot, metadata: { client_id: client, figure: figureId },
+  });
 
   const { data: raws } = await supabase
     .from("raw_platform_payloads")

@@ -8,13 +8,15 @@ export interface SidebarWorkspace {
   name: string;
   clients: Array<{ id: string; name: string }>;
   pendingApprovals: number;
+  /** Owners and managers see the Activity (audit) page. */
+  canSeeActivity?: boolean;
 }
 
 export interface SidebarProps {
   lang: "ar" | "en";
   email: string;
   workspaces: SidebarWorkspace[];
-  labels: { home: string; workspaces: string; clients: string; allClients: string; switchLang: string; signOut: string; website: string; approvals: string; team: string };
+  labels: { home: string; workspaces: string; clients: string; allClients: string; switchLang: string; signOut: string; website: string; approvals: string; team: string; activity: string };
 }
 
 const MAX_CLIENTS = 8;
@@ -28,6 +30,7 @@ export function Sidebar({ lang, email, workspaces, labels }: SidebarProps) {
   const activeClient = clientMatch?.[1];
   const onApprovals = /^\/w\/[^/]+\/approvals/.test(path);
   const onTeam = /^\/w\/[^/]+\/team/.test(path);
+  const onActivity = /^\/w\/[^/]+\/activity/.test(path);
 
   return (
     <aside className="sidebar" aria-label={labels.workspaces}>
@@ -40,7 +43,7 @@ export function Sidebar({ lang, email, workspaces, labels }: SidebarProps) {
           const open = w.id === activeWs;
           return (
             <div key={w.id} className="sidebar-group">
-              <a href={`/w/${w.id}`} className={open && !activeClient && !onApprovals && !onTeam ? "active" : undefined} aria-current={open && !activeClient && !onApprovals && !onTeam ? "page" : undefined}>
+              <a href={`/w/${w.id}`} className={open && !activeClient && !onApprovals && !onTeam && !onActivity ? "active" : undefined} aria-current={open && !activeClient && !onApprovals && !onTeam && !onActivity ? "page" : undefined}>
                 <Icon d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /> <span className="truncate">{w.name}</span>
               </a>
               {open && (
@@ -58,6 +61,14 @@ export function Sidebar({ lang, email, workspaces, labels }: SidebarProps) {
                       <span className="truncate">{labels.team}</span>
                     </a>
                   </li>
+                  {w.canSeeActivity && (
+                    <li>
+                      <a href={`/w/${w.id}/activity`} className={onActivity ? "active" : undefined} aria-current={onActivity ? "page" : undefined}>
+                        <Icon d="M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" />
+                        <span className="truncate">{labels.activity}</span>
+                      </a>
+                    </li>
+                  )}
                   {w.clients.slice(0, MAX_CLIENTS).map((c) => (
                     <li key={c.id}>
                       <a href={`/w/${w.id}/c/${c.id}`} className={c.id === activeClient ? "active" : undefined} aria-current={c.id === activeClient ? "page" : undefined}>

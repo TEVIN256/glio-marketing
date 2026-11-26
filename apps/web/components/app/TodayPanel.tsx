@@ -143,12 +143,12 @@ function HourlyChart({ today, yesterday, currentHour, labels, title }: {
           <g>
             <path d={`M${x(lastToday - 1).toFixed(1)},${y(prev).toFixed(1)} L${x(lastToday).toFixed(1)},${y(pv).toFixed(1)}`} className="line-partial" />
             <circle cx={x(lastToday)} cy={y(pv)} r={4} className="point-partial" />
-            <text x={x(lastToday)} y={y(pv) - 9} textAnchor="middle" className="tick partial-label">{labels.inProgress}</text>
           </g>
         )}
       </svg>
       <figcaption className="legend">
         <span className="key today" /> {labels.today} <span className="key yesterday" /> {labels.yesterday}
+        {partial && <><span className="key partial" /> {labels.inProgress}</>}
       </figcaption>
     </figure>
   );

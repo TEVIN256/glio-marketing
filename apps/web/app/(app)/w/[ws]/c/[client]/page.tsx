@@ -3,6 +3,8 @@ import { DEMO_EXTERNAL_ID } from "@glio/connectors";
 import { minorUnitDigits, todayIn } from "@glio/core";
 import { type Figure, METRIC_LABELS, METRIC_ORDER, type MetricId } from "@glio/reports";
 import { CampaignTable } from "@/components/app/CampaignTable";
+import { TodayPanel } from "@/components/app/TodayPanel";
+import { HOUR_METRICS, type HourMetric, loadToday } from "@/lib/today";
 import { DateRange } from "@/components/app/DateRange";
 import { Kpi } from "@/components/app/Kpi";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -17,13 +19,16 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
-import { connectTikTok, deleteClient, generateReport, loadDemoData, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
+import { connectTikTok, deleteClient, generateReport, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
 import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const KPI_ORDER: MetricId[] = METRIC_ORDER;
 const fill = (text: string, n: string | number | undefined) => text.replace("{n}", String(Number(n) || 0));
+
+// Opening the page may refresh today's figures from TikTok (bounded to 8 s, then shown from storage).
+export const maxDuration = 30;
 
 export default async function ClientDashboard({
   params, searchParams,
@@ -44,8 +49,10 @@ export default async function ClientDashboard({
   const requestedMetric: ChartMetric = CHART_METRICS.includes(q.m as ChartMetric) ? (q.m as ChartMetric) : "spend";
   const base = `/w/${ws}/c/${client}`;
   const keepRange: Record<string, string> = activePreset ? { p: activePreset } : { from: period.from, to: period.to };
+  const hourMetric: HourMetric = HOUR_METRICS.includes(q.hm as HourMetric) ? (q.hm as HourMetric) : "spend";
+  const keepAll: Record<string, string> = { ...keepRange, ...(requestedMetric === "spend" ? {} : { m: requestedMetric }) };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }, todayView] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -62,7 +69,9 @@ export default async function ClientDashboard({
       .eq("client_id", client).maybeSingle(),
     supabase.from("report_unsubscribes").select("email, unsubscribed_at").eq("client_id", client).order("unsubscribed_at", { ascending: false }),
     supabase.from("sync_runs").select("ad_account_id, status, started_at, finished_at, error_code")
-      .eq("client_id", client).order("started_at", { ascending: false }).limit(50),
+      .eq("client_id", client).neq("kind", "intraday").order("started_at", { ascending: false }).limit(50),
+    // Today so far (provisional): refreshed here when older than 10 minutes. Server read after the RLS check above.
+    loadToday(serverDb(), client, { refresh: true }),
   ]);
   const sg = sgSettings ?? {
     enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
@@ -210,6 +219,12 @@ export default async function ClientDashboard({
         )}
       />
       {notices}
+
+      {todayView && (
+        <TodayPanel view={todayView} metric={hourMetric} lang={lang} t={t}
+          hrefFor={(m) => `${base}?${new URLSearchParams({ ...keepAll, ...(m === "spend" ? {} : { hm: m }) })}#today`}
+          refresh={{ action: refreshToday, fields: { ws, client, back: `${base}?${new URLSearchParams({ ...keepAll, ...(hourMetric === "spend" ? {} : { hm: hourMetric }) })}` } }} />
+      )}
 
       <DateRange
         basePath={base}

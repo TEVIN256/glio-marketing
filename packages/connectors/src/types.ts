@@ -77,6 +77,22 @@ export interface AccountTotalsRequest {
   dateTo: string;
 }
 
+/** One campaign's numbers for one hour (platform time zone). Purchase value is not available per hour. */
+export interface HourlyMetricRow extends DailyMetricRow {
+  hour: number; // 0-23
+}
+
+export interface HourlyReportPage extends Omit<ReportPage, "rows"> {
+  rows: HourlyMetricRow[];
+}
+
+export interface HourlyReportRequest {
+  accessToken: string;
+  externalAccountId: string;
+  day: string;
+  page: number;
+}
+
 export interface ReportingConnector {
   readonly platform: Platform;
   /** Longest date range one report request may cover. */
@@ -84,6 +100,8 @@ export interface ReportingConnector {
   fetchDailyReportPage(req: DailyReportRequest): Promise<ReportPage>;
   /** Platform-reported totals for the whole account and range (max maxDaysPerRequest days). */
   fetchAccountTotals(req: AccountTotalsRequest): Promise<AccountTotals>;
+  /** Campaign x hour for one day (optional: platforms without hourly reports omit it). */
+  fetchHourlyReportPage?(req: HourlyReportRequest): Promise<HourlyReportPage>;
 }
 
 /**

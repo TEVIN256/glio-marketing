@@ -469,3 +469,25 @@ button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad)
 .pick-row.disabled { cursor: not-allowed; opacity: 0.7; }
 .pick-row input { inline-size: 18px; block-size: 18px; }
 .row-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Today so far (provisional) */
+.today-card { border-inline-start: 3px solid var(--accent); }
+.today-card h2 { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.today-refresh { display: flex; gap: 10px; align-items: center; }
+.today-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.today-tile { background: var(--bg, #f6f8fb); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.today-value { font-size: 1.25rem; font-weight: 700; margin-block-start: 2px; }
+.today-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.today-chart-head h3 { margin: 0; font-size: 1rem; }
+.hourly-chart { margin: 0; }
+.hourly-chart svg { inline-size: 100%; block-size: 180px; display: block; }
+.hourly-chart .grid { stroke: var(--line); stroke-width: 1; }
+.hourly-chart .tick { fill: var(--muted); font-size: 11px; }
+.hourly-chart .line-today { fill: none; stroke: var(--accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.hourly-chart .area-today { fill: var(--accent); opacity: 0.1; }
+.hourly-chart .line-yesterday { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 0.6; vector-effect: non-scaling-stroke; }
+.hourly-chart .legend { display: flex; gap: 8px; align-items: center; font-size: 0.8rem; color: var(--muted); margin-block-start: 4px; }
+.hourly-chart .key { display: inline-block; inline-size: 18px; block-size: 0; border-block-start: 2.5px solid var(--accent); }
+.hourly-chart .key.yesterday { border-block-start: 1.5px dashed var(--muted); margin-inline-start: 10px; }
+.today-campaigns summary { cursor: pointer; font-weight: 600; }
+@media print { .today-card { display: none; } }

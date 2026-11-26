@@ -66,6 +66,26 @@ export function campaignDailyReportParams(advertiserId: string, dateFrom: string
 }
 
 /**
+ * Campaign x hour for ONE day (TikTok allows a 1-day range with stat_time_hour; hours are
+ * "YYYY-MM-DD HH:00:00" in the account's time zone). Purchase metrics are not requested:
+ * TikTok supports them only with an ID dimension alone or with stat_time_day (doc 1751443967255553).
+ */
+export function campaignHourlyReportParams(advertiserId: string, day: string, page: number) {
+  return {
+    advertiser_id: advertiserId,
+    report_type: "BASIC",
+    data_level: "AUCTION_CAMPAIGN",
+    dimensions: ["campaign_id", "stat_time_hour"],
+    metrics: ["campaign_name", "spend", "impressions", "clicks", "conversion"],
+    filtering: [{ field_name: "campaign_status", filter_type: "IN", filter_value: JSON.stringify(["STATUS_ALL"]) }],
+    start_date: day,
+    end_date: day,
+    page,
+    page_size: TIKTOK_PAGE_SIZE,
+  };
+}
+
+/**
  * Account-level totals over the whole range (no day dimension), used for
  * reconciliation: one aggregated row, deleted campaigns included.
  */

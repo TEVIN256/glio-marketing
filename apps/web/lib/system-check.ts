@@ -15,11 +15,11 @@ export type CheckStatus = "ok" | "bad" | "warn" | "info";
 export interface Check { group: string; name: string; status: CheckStatus; detail: string }
 
 /** The latest migration's objects and the expected policy count (keep in step with docs/RUNBOOK.md). */
-export const EXPECTED_POLICIES = 49;
+export const EXPECTED_POLICIES = 50;
 const EXPECTED_TABLES = [
   "workspaces", "clients", "ad_accounts", "ad_account_credentials", "sync_runs", "raw_platform_payloads", "metric_daily",
   "reconciliation_checks", "report_snapshots", "ai_commentary", "report_schedules", "report_deliveries", "approval_requests",
-  "client_guardrails", "notification_settings", "invitations", "suggestion_settings", "report_shares", "report_unsubscribes", "pending_ad_connections",
+  "client_guardrails", "notification_settings", "invitations", "suggestion_settings", "report_shares", "report_unsubscribes", "pending_ad_connections", "metric_intraday",
 ];
 const EXPECTED_FUNCTIONS = ["decide_approval", "accept_invitation", "invitation_preview", "purge_expired_data"];
 /** Columns added to existing tables by later migrations (the code writes them; a missing one breaks syncs or emails). */
@@ -117,7 +117,9 @@ export async function databaseChecks(db: SqlExecutor): Promise<Check[]> {
       detail: n ? r.map((x) => `${String(x.at).slice(0, 16).replace("T", " ")} ${x.code ?? ""}`.trim()).slice(0, 5).join(" · ") : "none" });
   };
   await recent("Data syncs", `select started_at as at, error_code as code from public.sync_runs
-    where status = 'failed' and started_at > now() - interval '7 days' order by started_at desc limit 20`);
+    where kind <> 'intraday' and status = 'failed' and started_at > now() - interval '7 days' order by started_at desc limit 20`);
+  await recent("Today refreshes (provisional)", `select started_at as at, error_code as code from public.sync_runs
+    where kind = 'intraday' and status = 'failed' and started_at > now() - interval '7 days' order by started_at desc limit 20`);
   await recent("Report emails", `select created_at as at, error_code as code from public.report_deliveries
     where status = 'failed' and created_at > now() - interval '7 days' order by created_at desc limit 20`);
   await recent("Approved changes", `select coalesce(executed_at, decided_at) as at, error_code as code from public.approval_requests

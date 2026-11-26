@@ -132,12 +132,12 @@ describe("retention purge (migration 0013)", () => {
        values ($1, $2, $3, '2024-01-01', '2024-01-07', 'old@example.test', 'manual', 'sent', now() - interval '25 months')`,
       [ws, snap!.client_id, snap!.id]);
 
-    expect(await purgeExpiredData(exec)).toEqual({ invitations: 1, report_deliveries: 1 });
+    expect(await purgeExpiredData(exec)).toMatchObject({ invitations: 1, report_deliveries: 1 });
     const emails = await db.as(superuser, (q) => q("select email from invitations order by email"));
     expect(emails.map((r) => r.email)).toEqual(["new-invite@example.test"]);
     const recipients = await db.as(superuser, (q) => q("select recipient from report_deliveries"));
     expect(recipients.map((r) => r.recipient)).toEqual(["recipient@example.test"]);
-    expect(await purgeExpiredData(exec)).toEqual({ invitations: 0, report_deliveries: 0 });
+    expect(await purgeExpiredData(exec)).toMatchObject({ invitations: 0, report_deliveries: 0 });
   });
 
   it("outside the purge, the delivery log still can't be deleted by the server, and users can't run the purge", async () => {

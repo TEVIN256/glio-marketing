@@ -1,11 +1,11 @@
 import {
   type AccountTotals, type AccountTotalsRequest, type DailyMetricRow, type DailyReportRequest, type FetchLike,
-  PlatformError, type ReportingConnector, type ReportPage,
+  type HourlyMetricRow, type HourlyReportPage, type HourlyReportRequest, PlatformError, type ReportingConnector, type ReportPage,
 } from "../types.ts";
 import {
   TIKTOK_ADVERTISER_GET_PATH, TIKTOK_ADVERTISER_INFO_FIELDS, TIKTOK_ADVERTISER_INFO_MAX_IDS, TIKTOK_ADVERTISER_INFO_PATH,
   TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_PURCHASE_VALUE_METRIC, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_TOKEN_PATH,
-  accountTotalsParams, isNoValue, campaignDailyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
+  accountTotalsParams, isNoValue, campaignDailyReportParams, campaignHourlyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
   type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.ts";
 
@@ -116,6 +116,20 @@ export class TikTokConnector implements ReportingConnector {
     };
   }
 
+  async fetchHourlyReportPage(req: HourlyReportRequest): Promise<HourlyReportPage> {
+    const params = campaignHourlyReportParams(req.externalAccountId, req.day, req.page);
+    const { body, data } = await this.getReport(params, req.accessToken);
+    return {
+      endpoint: TIKTOK_REPORT_PATH,
+      requestParams: params,
+      payload: body,
+      hashBasis: withoutRequestId(body),
+      page: data.page_info.page,
+      totalPages: data.page_info.total_page,
+      rows: data.list.map(toHourlyRow),
+    };
+  }
+
   async fetchAccountTotals(req: AccountTotalsRequest): Promise<AccountTotals> {
     const params = accountTotalsParams(req.externalAccountId, req.dateFrom, req.dateTo);
     const { body, data } = await this.getReport(params, req.accessToken);
@@ -209,6 +223,29 @@ function toRow(item: TikTokReportData["list"][number]): DailyMetricRow {
     clicks: integerOrNull(m["clicks"]),
     conversions: decimalOrNull(m["conversion"]),
     purchaseValue: decimalOrNull(m[TIKTOK_PURCHASE_VALUE_METRIC]),
+  };
+}
+
+function toHourlyRow(item: TikTokReportData["list"][number]): HourlyMetricRow {
+  const d = item.dimensions ?? {};
+  const m = item.metrics ?? {};
+  const campaignId = d["campaign_id"];
+  const at = String(d["stat_time_hour"] ?? "");
+  const match = /^(\d{4}-\d{2}-\d{2}) (\d{2}):00:00$/.exec(at);
+  if (!campaignId || !match) {
+    throw new PlatformError("TikTok hourly row is missing campaign_id or a valid stat_time_hour", "tiktok", "bad_shape", false);
+  }
+  return {
+    level: "campaign",
+    entityId: String(campaignId),
+    entityName: m["campaign_name"] == null ? null : String(m["campaign_name"]),
+    date: match[1]!,
+    hour: Number(match[2]),
+    spend: decimalOrNull(m["spend"]),
+    impressions: integerOrNull(m["impressions"]),
+    clicks: integerOrNull(m["clicks"]),
+    conversions: decimalOrNull(m["conversion"]),
+    purchaseValue: null, // not available per hour
   };
 }
 

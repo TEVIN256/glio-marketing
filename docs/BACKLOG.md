@@ -5,29 +5,6 @@ When an item is built, move its outcome to `DECISIONS.md` (ADR) and `RUNBOOK.md`
 
 ## Next
 
-### Live "today so far" and hourly view (requested 2026-11-26)
-
-Show the current day while it is still running, per client.
-
-- **"Today so far" panel** at the top of the client page: spend, purchase value, ROAS, conversions, clicks,
-  with "Updated HH:MM (Riyadh)" and a refresh button.
-- **Hourly chart for today**, with yesterday's hours as a faint comparison line.
-- **Open question for the owner:** account totals only, or also per campaign for today.
-- **Provisional, always labelled:** "Today's figures are provisional; TikTok may still revise them."
-  - Purchases keep being attributed for days after a click, so today's value and ROAS will still change.
-  - TikTok's own reporting runs a little behind.
-- **Kept out of** reports, emails, share links and the reconciliation badge. Completed days still come only from
-  the normal daily sync.
-- **How it refreshes:** fetched when the page is opened or refreshed, at most every ~10 minutes per client.
-  - The page refreshes itself while open.
-  - The Vercel Hobby plan allows one scheduled job a day, so there is no background polling.
-  - This also keeps TikTok requests low.
-- **TikTok side:** the report with the `stat_time_hour` dimension covers one day per request, in the ad account's
-  time zone.
-- **Rules that still apply:** every fetch is archived in `raw_platform_payloads` like any other response, so today's
-  numbers stay traceable (firm rule 2).
-- **Needs:** one small migration for provisional "today" rows, separate from `metric_daily`.
-
 ### Break-even ROAS on the dashboard
 
 - Show a break-even line or marker on the ROAS tile and in the campaign table.

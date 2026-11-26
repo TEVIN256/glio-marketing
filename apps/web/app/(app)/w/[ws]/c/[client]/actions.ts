@@ -10,6 +10,7 @@ import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { OAUTH_MAX_AGE_SECONDS, TIKTOK_OAUTH_COOKIE, newPendingConnection } from "@/lib/oauth-state";
 import { serverDb } from "@/lib/server-db";
+import { loadToday } from "@/lib/today";
 import { syncClientTikTok } from "@/lib/tiktok-sync";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -241,4 +242,16 @@ export async function deleteClient(formData: FormData) {
   // redirect() must be called outside try/catch.
   if (failure) redirect(`${base}?e=delete&code=${encodeURIComponent(failure)}#delete`);
   redirect(`/w/${ws}?deleted=1`);
+}
+
+/** "Refresh" on the Today panel: fetch today's figures now (at most once a minute per account). */
+export async function refreshToday(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const back = String(formData.get("back") ?? "");
+  const access = await clientAccess(ws, client);
+  if (!access.canView) redirect(`${base}?e=forbidden`);
+  await loadToday(serverDb(), client, { refresh: true, force: true });
+  redirect(`${back.startsWith(`${base}?`) || back === base ? back : base}#today`);
 }

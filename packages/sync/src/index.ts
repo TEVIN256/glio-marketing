@@ -9,3 +9,4 @@ export * from "./approvals.ts";
 export * from "./suggestions.ts";
 export * from "./delete-client.ts";
 export * from "./pending.ts";
+export * from "./intraday.ts";

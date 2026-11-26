@@ -157,6 +157,7 @@ Owners open **https://www.glioagency.org/diagnostics**. It checks, live and with
 - After approval the portal shows the **App ID** and **Secret**. Put them in Vercel as `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (**Secret**); never in chat, code or logs.
 - **Connection flow (built 2026-11-22, ADR-016):** client page → "Connect TikTok" → TikTok authorization → `/integrations/tiktok/callback` → accounts attached to the client, token in Supabase Vault → **the last 30 days are synced right away** (ADR-030; if that fails the accounts stay connected and the page says why) → the daily job keeps the last 7 days fresh; "Sync TikTok data" syncs any other period.
 - **Several ad accounts on one TikTok login (ADR-032):** after TikTok's approval, GLIO shows "Choose the ad accounts": accounts already on this client are ticked, accounts on another client can't be chosen, nothing is attached until "Connect the chosen accounts". The choice expires after 30 minutes (the daily job deletes expired ones and their tokens). One authorised account is attached directly. Logs: `tiktok_connect_cancelled`.
+- **Today so far (ADR-033):** a provisional panel at the top of the client page (clients with a connected, non-demo TikTok account). Opening the page refreshes today from TikTok when the stored figures are older than 10 minutes (bounded to 8 s; the rest finishes in the background); "Refresh" forces it (at most once a minute); the page re-renders itself every 10 minutes while open. Per campaign: spend, purchase value, ROAS, conversions, clicks for the day so far; per hour: spend, clicks, conversions (TikTok has no hourly purchase value), with yesterday's hours (fetched once after midnight) as a dashed line. Stored in `metric_intraday` + `sync_runs` kind `intraday`; never in reports, emails, share links or reconciliation. Purged after 14 days with their raw responses. Logs: `intraday_refresh_failed`; Diagnostics lists "Today refreshes" failures separately.
 - **What the client page shows before figures exist:** not connected → "Connect TikTok"; connected but never synced → "Sync this period"; synced but no activity in the period → "No ad activity", with the last sync time. Each connected account shows its last sync time, or the last failure with its hint. Logs: `tiktok_first_sync_failed`.
 - **Before the first real connection:**
   1. Check Vault in the Supabase SQL editor: `select exists (select 1 from pg_extension where extname = 'supabase_vault') as vault_on;` expect `true`. If `false`, enable it under Database → Extensions (supabase_vault). **Checked 2026-11-22 on the Frankfurt project: `true`.**
@@ -338,6 +339,16 @@ select
   (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'pending_ad_connections') as pending_rls,   -- expect true
   has_table_privilege('authenticated', 'public.pending_ad_connections', 'SELECT')                           as users_can_read, -- expect false
   (select count(*) from pg_policies where schemaname = 'public')                                            as policies;       -- expect 49
+```
+
+### Diagnostic for 20261126000002_intraday
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'metric_intraday')   as intraday_rls,  -- expect true
+  (select pg_get_constraintdef(oid) like '%intraday%' from pg_constraint
+    where conname = 'sync_runs_kind_check')                                                            as intraday_kind, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                                       as policies;      -- expect 50
 ```
 
 ## Migration log

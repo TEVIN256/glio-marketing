@@ -83,6 +83,10 @@ beforeAll(async () => {
          values ($1, $2, $3, 'tiktok', 'campaign', 'test-campaign', '2026-01-01', 'SAR', 100, $4, $5)`,
         [a.workspace_id, a.client_id, a.id, raw.id, run.id]);
       await q(
+        `insert into metric_intraday (workspace_id, client_id, ad_account_id, platform, entity_id, day, grain, hour, currency, spend_minor, raw_payload_id, sync_run_id)
+         values ($1, $2, $3, 'tiktok', 'test-campaign', '2026-01-02', 'hour', 9, 'SAR', 10, $4, $5)`,
+        [a.workspace_id, a.client_id, a.id, raw.id, run.id]);
+      await q(
         `insert into reconciliation_checks (check_id, workspace_id, client_id, ad_account_id, platform, sync_run_id, date_from, date_to,
                                             metric, unit, currency, ours, theirs, drift_ppm, threshold_ppm, status, platform_payload_id)
          values (gen_random_uuid(), $1, $2, $3, 'tiktok', $4, '2026-01-01', '2026-01-01', 'spend', 'minor_units', 'SAR', 100, 100, 0, 5000, 'ok', $5)`,
@@ -212,6 +216,7 @@ describe("client_viewer", () => {
       expect((await q("select distinct client_id from report_deliveries")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select distinct client_id from report_shares")).map((r) => r.client_id)).toEqual([clientA1]);
       expect((await q("select client_id from report_unsubscribes")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from metric_intraday")).map((r) => r.client_id)).toEqual([clientA1]);
     });
   });
 

@@ -133,6 +133,7 @@ Owners open **https://www.glioagency.org/diagnostics**. It checks, live and with
 
 - **Workspace** (owners): Team page → "Delete workspace" → type its name. Deletes every client and all data, members, invitations, settings; TikTok tokens are revoked at TikTok and deleted from Vault. Audit `workspace.deleted` (name and counts) stays. Logs `workspace_deleted` / `workspace_delete_failed`.
 - **Account** (anyone, themselves only): click your email in the sidebar → "Your account" → type your email. Blocked while you are the only owner of a workspace (delete it or make someone else owner first). Cancels your open invitations, audits `member.account_deleted` in each workspace, then deletes the Supabase sign-in record. Past actions keep your bare id ("former member").
+- **Live since 2026-11-26:** `SUPABASE_SECRET_KEY` set in Vercel; a test account deleted itself end to end (sign-in removed, membership gone, Activity shows it). Reported OK by the owner.
 - **Needs** `SUPABASE_SECRET_KEY` in Vercel (type **Secret**): Supabase → Project Settings → API Keys → Secret keys. Without it the page says to email us (Diagnostics shows a warning).
 
 ## Activity (audit log)

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { DEMO_EXTERNAL_ID } from "@glio/connectors";
 import { addDays, todayIn } from "@glio/core";
 import { ClaudeCommentaryModel, ResendMailer, runScheduledReports } from "@glio/reports";
-import { VaultSecretStore, purgeExpiredData, suggestForClients } from "@glio/sync";
+import { VaultSecretStore, purgeExpiredData, purgeExpiredPendingConnections, suggestForClients } from "@glio/sync";
 import { cronAuthorized } from "@/lib/cron-auth";
 import { notifyApprovals } from "@/lib/notify-run";
 import { env } from "@/lib/env";
@@ -83,7 +83,10 @@ export async function GET(request: NextRequest) {
 
   // 5. Retention: delete personal data past its retention period (migration 0013)
   try {
-    result.purged = await purgeExpiredData(db);
+    result.purged = {
+      ...(await purgeExpiredData(db)),
+      pending_ad_connections: await purgeExpiredPendingConnections({ db, secrets: new VaultSecretStore(db) }),
+    };
   } catch (err) {
     result.purged = { error: describeError(err).code };
   }

@@ -106,6 +106,11 @@ beforeAll(async () => {
       await q(
         `insert into report_unsubscribes (workspace_id, client_id, email) values ($1, $2, 'stopped@example.test')`,
         [a.workspace_id, a.client_id]);
+      await q(
+        `insert into pending_ad_connections (workspace_id, client_id, user_id, platform, secret_ref, accounts)
+         values ($1, $2, (select user_id from memberships where workspace_id = $1 and role = 'owner' limit 1), 'tiktok',
+                 'vault:glio/tiktok/seed', '[]')`,
+        [a.workspace_id, a.client_id]);
     }
   });
 });
@@ -132,7 +137,7 @@ describe("cross-workspace isolation (M1 gate)", () => {
       q(`select table_name from information_schema.columns
          where table_schema = 'public' and column_name = 'workspace_id'`),
     );
-    expect(tables.length).toBeGreaterThanOrEqual(20); // 19 tables + the reconciliation_latest view
+    expect(tables.length).toBeGreaterThanOrEqual(20); // tables + the reconciliation_latest view
     for (const { table_name } of tables) {
       // Sanity: workspace B really has rows here, otherwise the check proves nothing.
       const total = await db.as(superuser, (q) => one(q, `select count(*)::int as n from public.${table_name} where workspace_id = $1`, [wsB]));

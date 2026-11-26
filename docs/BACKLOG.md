@@ -28,16 +28,6 @@ Show the current day while it is still running, per client.
   numbers stay traceable (firm rule 2).
 - **Needs:** one small migration for provisional "today" rows, separate from `metric_daily`.
 
-### Account picker when connecting TikTok
-
-TikTok's authorization page grants every ad account the TikTok login can access, and GLIO attaches all of them to the
-client it was connected from.
-
-- **Risk:** an agency login could pull in other businesses' accounts. Accounts already used by another client in the
-  workspace are only flagged as conflicts.
-- **Build:** after the TikTok approval step, show the authorised accounts and let the owner or manager choose which to
-  attach.
-
 ### Break-even ROAS on the dashboard
 
 - Show a break-even line or marker on the ROAS tile and in the campaign table.

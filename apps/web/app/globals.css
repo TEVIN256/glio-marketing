@@ -459,3 +459,13 @@ button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad)
 .account-sync { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: end; }
 .small { font-size: 12px; }
 .sync-failed { color: var(--bad); font-size: 12px; }
+
+/* TikTok account picker */
+.pick-form { max-width: 760px; }
+.pick-list { list-style: none; margin: 0; padding: 0; }
+.pick-list li + li { border-block-start: 1px solid var(--line); }
+.pick-row { display: flex; gap: 12px; align-items: center; padding: 12px 4px; cursor: pointer; }
+.pick-row > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.pick-row.disabled { cursor: not-allowed; opacity: 0.7; }
+.pick-row input { inline-size: 18px; block-size: 18px; }
+.row-actions { display: flex; gap: 10px; flex-wrap: wrap; }

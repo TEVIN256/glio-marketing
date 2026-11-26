@@ -152,6 +152,7 @@ export default async function ClientDashboard({
         </p>
       )}
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
+      {q.tt === "cancelled" && <p className="notice" role="status">{t.tiktokConnectCancelled}</p>}
       {q.ap === "requested" && (
         <p className="notice" role="status">{t.apResult_requested} <a href={`/w/${ws}/approvals`}>{t.navApprovals}</a></p>
       )}

@@ -19,7 +19,7 @@ export const EXPECTED_POLICIES = 49;
 const EXPECTED_TABLES = [
   "workspaces", "clients", "ad_accounts", "ad_account_credentials", "sync_runs", "raw_platform_payloads", "metric_daily",
   "reconciliation_checks", "report_snapshots", "ai_commentary", "report_schedules", "report_deliveries", "approval_requests",
-  "client_guardrails", "notification_settings", "invitations", "suggestion_settings", "report_shares", "report_unsubscribes",
+  "client_guardrails", "notification_settings", "invitations", "suggestion_settings", "report_shares", "report_unsubscribes", "pending_ad_connections",
 ];
 const EXPECTED_FUNCTIONS = ["decide_approval", "accept_invitation", "invitation_preview", "purge_expired_data"];
 /** Columns added to existing tables by later migrations (the code writes them; a missing one breaks syncs or emails). */

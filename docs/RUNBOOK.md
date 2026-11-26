@@ -156,6 +156,7 @@ Owners open **https://www.glioagency.org/diagnostics**. It checks, live and with
   - Profile description used for the first resubmission attempt: "GLIO (glioagency.org) is the trading name of Sutoor AlMustaqbaliyya Agency for Commercial Services, Commercial Registration 7042386917, Kingdom of Saudi Arabia. The legal name, brand and CR number are shown together in the footer of glioagency.org and in its privacy policy. Our email domain is glioagency.org. We are a digital marketing agency that manages TikTok advertising for Saudi businesses; our platform at glioagency.org reads reporting data and, only after a client's approval, changes campaign status or budgets on the ad accounts our clients authorise."
 - After approval the portal shows the **App ID** and **Secret**. Put them in Vercel as `TIKTOK_APP_ID` (Config) and `TIKTOK_APP_SECRET` (**Secret**); never in chat, code or logs.
 - **Connection flow (built 2026-11-22, ADR-016):** client page → "Connect TikTok" → TikTok authorization → `/integrations/tiktok/callback` → accounts attached to the client, token in Supabase Vault → **the last 30 days are synced right away** (ADR-030; if that fails the accounts stay connected and the page says why) → the daily job keeps the last 7 days fresh; "Sync TikTok data" syncs any other period.
+- **Several ad accounts on one TikTok login (ADR-032):** after TikTok's approval, GLIO shows "Choose the ad accounts": accounts already on this client are ticked, accounts on another client can't be chosen, nothing is attached until "Connect the chosen accounts". The choice expires after 30 minutes (the daily job deletes expired ones and their tokens). One authorised account is attached directly. Logs: `tiktok_connect_cancelled`.
 - **What the client page shows before figures exist:** not connected → "Connect TikTok"; connected but never synced → "Sync this period"; synced but no activity in the period → "No ad activity", with the last sync time. Each connected account shows its last sync time, or the last failure with its hint. Logs: `tiktok_first_sync_failed`.
 - **Before the first real connection:**
   1. Check Vault in the Supabase SQL editor: `select exists (select 1 from pg_extension where extname = 'supabase_vault') as vault_on;` expect `true`. If `false`, enable it under Database → Extensions (supabase_vault). **Checked 2026-11-22 on the Frankfurt project: `true`.**
@@ -328,6 +329,15 @@ select
   (select pg_get_constraintdef(oid) like '%purchase_value%' from pg_constraint
     where conname = 'reconciliation_checks_metric_check')                                         as recon_metric, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                                  as policies;     -- expect 49
+```
+
+### Diagnostic for 20261126000001_pending_connections
+
+```sql
+select
+  (select rowsecurity from pg_tables where schemaname = 'public' and tablename = 'pending_ad_connections') as pending_rls,   -- expect true
+  has_table_privilege('authenticated', 'public.pending_ad_connections', 'SELECT')                           as users_can_read, -- expect false
+  (select count(*) from pg_policies where schemaname = 'public')                                            as policies;       -- expect 49
 ```
 
 ## Migration log

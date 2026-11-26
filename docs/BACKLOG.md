@@ -7,6 +7,22 @@ When an item is built, move its outcome to `DECISIONS.md` (ADR) and `RUNBOOK.md`
 
 ### Zid store connection: real sales next to ad-reported sales (requested 2026-11-26)
 
+**On hold (owner's decision, 2026-11-26).** Resume from here:
+
+- WAKE UP is on Zid's Professional plan, which includes API access, so the private-app route applies.
+- The owner still needs to:
+  - Create a partner account at partner.zid.sa with an email not linked to any Zid store (e.g. a new
+    dev@glioagency.org) and a Saudi mobile number.
+  - Create a Private app named "GLIO" with:
+    - Redirection URL `https://www.glioagency.org/integrations/zid/start`
+    - Callback URL `https://www.glioagency.org/integrations/zid/callback`
+    - read-only scopes for orders and store details
+    - WAKE UP's Store ID
+  - Add the app's keys in Vercel: `ZID_CLIENT_ID` (Config) and `ZID_CLIENT_SECRET` (Secret).
+  - Not use the activation link until GLIO's side is built.
+- **Then build:** "Connect Zid", a daily store-sales sync (aggregates only), a Store sales tile, overall ROAS, and
+  the TikTok vs store tracking check.
+
 WAKE UP sells on Zid. Connect a merchant's Zid store, read-only, to compare what ad platforms claim with what the store
 actually sold.
 

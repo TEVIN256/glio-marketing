@@ -4,7 +4,7 @@ Guidance for Claude Code in this repository.
 
 ## What this is
 
-Glio: Arabic-first AI ad operations for Saudi businesses and agencies. TypeScript monorepo (pnpm workspaces) on Supabase (Postgres + Auth + RLS). TikTok is the first and only channel until it passes real-data testing.
+Glio: Arabic-first AI ad operations for Saudi businesses and agencies. TypeScript monorepo (pnpm workspaces) on Supabase (Postgres + Auth + RLS). TikTok was the first channel and passed real-data testing (2026-11); Snapchat is reporting-only (ADR-041) until it passes real-data testing too.
 
 ## Commands
 

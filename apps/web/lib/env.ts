@@ -25,6 +25,12 @@ export const env = {
   tiktokConfigured: () => Boolean(process.env.TIKTOK_APP_ID && process.env.TIKTOK_APP_SECRET),
   /** Must match the "Advertiser redirect URL" registered with TikTok exactly. */
   tiktokRedirectUri: () => process.env.TIKTOK_REDIRECT_URI || "https://www.glioagency.org/integrations/tiktok/callback",
+  /** Snapchat Marketing API app (Snap Business Manager → Business Details → OAuth apps). The secret is SERVER ONLY. */
+  snapchatClientId: () => required("SNAPCHAT_CLIENT_ID"),
+  snapchatClientSecret: () => required("SNAPCHAT_CLIENT_SECRET"),
+  snapchatConfigured: () => Boolean(process.env.SNAPCHAT_CLIENT_ID && process.env.SNAPCHAT_CLIENT_SECRET),
+  /** Must match the OAuth app's redirect URI in Snap Business Manager exactly. */
+  snapchatRedirectUri: () => process.env.SNAPCHAT_REDIRECT_URI || "https://www.glioagency.org/integrations/snapchat/callback",
   /** Zid Partner app (read-only store sales). The secret is SERVER ONLY. */
   zidClientId: () => required("ZID_CLIENT_ID"),
   zidClientSecret: () => required("ZID_CLIENT_SECRET"),

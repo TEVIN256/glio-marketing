@@ -48,6 +48,9 @@ export function configChecks(e: NodeJS.ProcessEnv = process.env): Check[] {
   need("CRON_SECRET", "the daily job");
   rows.push({ group: "Configuration", name: "SUPABASE_SECRET_KEY", status: set("SUPABASE_SECRET_KEY") ? "ok" : "warn",
     detail: set("SUPABASE_SECRET_KEY") ? "set" : "missing: people can't delete their own account (manual by email until set)" });
+  const snap = set("SNAPCHAT_CLIENT_ID") && set("SNAPCHAT_CLIENT_SECRET");
+  rows.push({ group: "Configuration", name: "SNAPCHAT_CLIENT_ID / SNAPCHAT_CLIENT_SECRET", status: snap ? "ok" : "info",
+    detail: snap ? "set" : "not set: Connect Snapchat is hidden (optional)" });
   const zid = set("ZID_CLIENT_ID") && set("ZID_CLIENT_SECRET");
   rows.push({ group: "Configuration", name: "ZID_CLIENT_ID / ZID_CLIENT_SECRET", status: zid ? "ok" : "info",
     detail: zid ? "set" : "not set: Connect Zid store is hidden (optional)" });

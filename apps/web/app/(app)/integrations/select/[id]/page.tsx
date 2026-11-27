@@ -18,7 +18,7 @@ export const maxDuration = 60;
 export default async function SelectTikTokAccounts({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { user } = await requireUser();
-  const { t } = await getDict();
+  const { lang, t } = await getDict();
   // Only the user who started the connection can load it (checked in the query), then their role on the client.
   const pending = await loadPendingConnection(serverDb(), { id, userId: user.id });
 
@@ -36,7 +36,8 @@ export default async function SelectTikTokAccounts({ params }: { params: Promise
   const access = await clientAccess(pending.workspaceId, pending.clientId);
   if (!access.canManage || !access.client) notFound();
 
-  const [before, after = ""] = t.pickSub.replace("{n}", String(pending.accounts.length)).split("{client}");
+  const platformName = pending.platform === "snapchat" ? "Snapchat" : lang === "ar" ? "تيك توك" : "TikTok";
+  const [before, after = ""] = t.pickSub.replace("{n}", String(pending.accounts.length)).replace("{platform}", platformName).split("{client}");
   return (
     <div className="page">
       <PageHeader
@@ -64,7 +65,7 @@ export default async function SelectTikTokAccounts({ params }: { params: Promise
             </li>
           ))}
         </ul>
-        <p className="muted small">{t.pickNote}</p>
+        <p className="muted small">{pending.platform === "snapchat" ? t.pickNoteSnapchat : t.pickNote}</p>
         <div className="row-actions">
           <button type="submit" formAction={connectChosenAccounts}>{t.pickConnect}</button>
           <button type="submit" formAction={cancelConnection} className="secondary" formNoValidate>{t.pickCancel}</button>

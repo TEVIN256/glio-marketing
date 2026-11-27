@@ -9,13 +9,13 @@ import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { serverDb } from "@/lib/server-db";
 import { syncClientStore } from "@/lib/store";
-import { syncClientTikTok } from "@/lib/tiktok-sync";
+import { configuredAdPlatforms, syncClientAds } from "@/lib/tiktok-sync";
 
 export const maxDuration = 60;
 
 /**
  * Daily job (vercel.json, 05:00 UTC = 08:00 Riyadh). Only Vercel Cron (with CRON_SECRET) may call it.
- *  1. Refresh the last 7 days of TikTok data for clients with connected (non-demo) accounts,
+ *  1. Refresh the last 7 days of ad data (TikTok, Snapchat) for clients with connected (non-demo) accounts,
  *     and of store sales for connected stores (Zid; refreshing store tokens when due).
  *  2. Run GLIO's suggestion rules for every client (proposals only; nothing is applied).
  *  3. Email owners/managers about requests waiting for approval (each announced once).
@@ -33,15 +33,16 @@ export async function GET(request: NextRequest) {
 
   // 1. Refresh connected accounts
   const refreshed: Array<{ client: string; ok: boolean; code?: string }> = [];
-  if (env.tiktokConfigured()) {
+  const platforms = configuredAdPlatforms();
+  if (platforms.length > 0) {
     const clients = await db.query(
       `select distinct workspace_id, client_id from public.ad_accounts
-       where platform = 'tiktok' and status = 'active' and external_id <> $1`,
-      [DEMO_EXTERNAL_ID],
+       where platform = any($2::text[]) and status = 'active' and external_id <> $1`,
+      [DEMO_EXTERNAL_ID, platforms],
     );
     for (const c of clients) {
       try {
-        await syncClientTikTok(db, c.workspace_id, c.client_id, addDays(yesterday, -6), yesterday);
+        await syncClientAds(db, c.workspace_id, c.client_id, addDays(yesterday, -6), yesterday);
         refreshed.push({ client: c.client_id, ok: true });
       } catch (err) {
         refreshed.push({ client: c.client_id, ok: false, code: describeError(err).code });
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
           model: env.anthropicConfigured() ? new ClaudeCommentaryModel() : null,
           from: env.reportsFrom(), replyTo: env.reportsReplyTo(), appUrl: env.appUrl(),
           refresh: async ({ workspaceId, clientId, period }) => {
-            if (env.tiktokConfigured()) await syncClientTikTok(db, workspaceId, clientId, period.from, period.to);
+            if (configuredAdPlatforms().length > 0) await syncClientAds(db, workspaceId, clientId, period.from, period.to);
           },
         },
         today,

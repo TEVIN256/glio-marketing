@@ -1,6 +1,9 @@
 import type { SecretStore } from "./secrets.ts";
 import type { SqlExecutor } from "./sql.ts";
 
+/** Ad platforms GLIO connects (reporting). Only TikTok also has the approval executor. */
+export type AdPlatform = "tiktok" | "snapchat";
+
 /** An ad account the owner authorised on the platform. */
 export interface AuthorizedAccount {
   externalId: string;
@@ -14,7 +17,8 @@ export interface ConnectArgs {
   clientId: string;
   /** The signed-in user who completed the platform's authorization (already checked: owner/manager). */
   userId: string;
-  platform: "tiktok";
+  platform: AdPlatform;
+  /** The token GLIO keeps: TikTok's long-term access token; Snapchat's refresh token (access tokens last 1 hour). */
   accessToken: string;
   /** Where to store the token, from newSecretRef(). */
   secretRef: string;

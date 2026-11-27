@@ -123,7 +123,8 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
     const clicks = full("n_clicks") ? BigInt(r.clicks ?? "0") : null;
     const conv = full("n_conv") ? scaled(r.conversions, "conversions") : null;
     // Purchase value = the client's chosen sources (website / app / Shop); any source missing → not provided.
-    const parts = (cur.valueSources ?? ["website"]).map((s) =>
+    // In-app / TikTok Shop are TikTok metrics: other platforms count their own purchase value only.
+    const parts = (r.platform === "tiktok" ? cur.valueSources ?? ["website"] : ["website"]).map((s) =>
       s === "app" ? (full("n_app") ? BigInt(r.app_value ?? "0") : null)
       : s === "shop" ? (full("n_shop") ? BigInt(r.shop_revenue ?? "0") : null)
       : (full("n_value") ? BigInt(r.purchase_value ?? "0") : null));

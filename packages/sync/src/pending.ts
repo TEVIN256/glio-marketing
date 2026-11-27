@@ -1,4 +1,4 @@
-import { type AuthorizedAccount, type ConnectResult, connectAdAccounts } from "./connect.ts";
+import { type AdPlatform, type AuthorizedAccount, type ConnectResult, connectAdAccounts } from "./connect.ts";
 import { type SecretStore, newSecretRef } from "./secrets.ts";
 import type { SqlExecutor } from "./sql.ts";
 
@@ -24,14 +24,14 @@ export interface PendingConnection {
   id: string;
   workspaceId: string;
   clientId: string;
-  platform: "tiktok";
+  platform: AdPlatform;
   expiresAt: string;
   accounts: PendingAccount[];
 }
 
 export async function createPendingConnection(
   deps: Deps,
-  args: { workspaceId: string; clientId: string; userId: string; platform: "tiktok"; accessToken: string; accounts: AuthorizedAccount[] },
+  args: { workspaceId: string; clientId: string; userId: string; platform: AdPlatform; accessToken: string; accounts: AuthorizedAccount[] },
 ): Promise<string> {
   const secretRef = newSecretRef(args.platform);
   await deps.secrets.put(secretRef, args.accessToken);

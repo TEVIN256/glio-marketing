@@ -6,7 +6,7 @@ import { clientAccess } from "@/lib/authz";
 import { describeError } from "@/lib/errors";
 import { serverDb } from "@/lib/server-db";
 import { requireUser } from "@/lib/supabase/server";
-import { finishTikTokConnection } from "@/lib/tiktok-connect";
+import { finishAdConnection } from "@/lib/tiktok-connect";
 
 /** Load the user's own pending choice and re-check they may still manage that client. */
 async function authorised(id: string) {
@@ -21,20 +21,20 @@ async function authorised(id: string) {
 export async function connectChosenAccounts(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const ctx = await authorised(id);
-  if (!ctx) redirect(`/integrations/tiktok/select/${encodeURIComponent(id)}`);
+  if (!ctx) redirect(`/integrations/select/${encodeURIComponent(id)}`);
   const chosen = formData.getAll("account").map(String);
 
   let target: string;
   try {
     const db = serverDb();
     const result = await confirmPendingConnection({ db, secrets: new VaultSecretStore(db) }, { id, userId: ctx.user.id, externalIds: chosen });
-    if (!result) target = `/integrations/tiktok/select/${encodeURIComponent(id)}`;
+    if (!result) target = `/integrations/select/${encodeURIComponent(id)}`;
     else if (result.connected.length === 0 && result.conflicts.length === 0) target = `${ctx.base}?tt=cancelled`;
-    else target = `${ctx.base}?${await finishTikTokConnection(db, ctx.pending.workspaceId, ctx.pending.clientId, result)}`;
+    else target = `${ctx.base}?${await finishAdConnection(db, ctx.pending.workspaceId, ctx.pending.clientId, result, ctx.pending.platform)}`;
   } catch (err) {
     const d = describeError(err);
     console.error(JSON.stringify({ event: "tiktok_connect_failed", client: ctx.pending.clientId, code: d.code, error: d.message }));
-    target = `${ctx.base}?e=tiktok&code=${encodeURIComponent(d.code)}`;
+    target = `${ctx.base}?e=${ctx.pending.platform === "snapchat" ? "snapchat" : "tiktok"}&code=${encodeURIComponent(d.code)}`;
   }
   redirect(target);
 }

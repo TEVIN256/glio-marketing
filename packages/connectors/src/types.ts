@@ -111,6 +111,11 @@ export interface ReportingConnector {
   /** Longest date range one report request may cover. */
   readonly maxDaysPerRequest: number;
   fetchDailyReportPage(req: DailyReportRequest): Promise<ReportPage>;
+  /**
+   * Which core metrics fetchAccountTotals reports. Omitted = all (spend, impressions, clicks,
+   * conversions). Snapchat's ad account reports spend only, so only spend is reconciled there.
+   */
+  readonly accountTotalsMetrics?: ReadonlyArray<"spend" | "impressions" | "clicks" | "conversions">;
   /** Platform-reported totals for the whole account and range (max maxDaysPerRequest days). */
   fetchAccountTotals(req: AccountTotalsRequest): Promise<AccountTotals>;
   /** Campaign x hour for one day (optional: platforms without hourly reports omit it). */

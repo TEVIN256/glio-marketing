@@ -155,12 +155,14 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
       }
       return result;
     };
-    const results: MetricComparison[] = [
-      compare("spend", ours(o!.spend, o!.n_spend), theirs.spend),
-      compare("impressions", ours(o!.impressions, o!.n_impr), theirs.impressions),
-      compare("clicks", ours(o!.clicks, o!.n_clicks), theirs.clicks),
-      compare("conversions", oursConv, theirs.conversions),
-    ];
+    // Only the metrics the platform's account totals actually report (Snapchat: spend only).
+    const reported = connector.accountTotalsMetrics ?? ["spend", "impressions", "clicks", "conversions"];
+    const results: MetricComparison[] = ([
+      ["spend", () => compare("spend", ours(o!.spend, o!.n_spend), theirs.spend)],
+      ["impressions", () => compare("impressions", ours(o!.impressions, o!.n_impr), theirs.impressions)],
+      ["clicks", () => compare("clicks", ours(o!.clicks, o!.n_clicks), theirs.clicks)],
+      ["conversions", () => compare("conversions", oursConv, theirs.conversions)],
+    ] as const).filter(([m]) => reported.includes(m)).map(([, run]) => run());
     // Purchase value is checked when both sides have it (it is optional: an account may not track
     // website purchases, and older rows predate it), so its absence never downgrades the check.
     const optional: Array<[MetricName, bigint | null | "mixed", bigint | null]> = [

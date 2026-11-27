@@ -21,8 +21,8 @@ export async function dropUnusedTokens(
       [ref],
     );
     if (used || ref.startsWith("demo://")) continue;
-    // `revoke` is the ad platform's; a store's tokens (vault:glio/zid/…) are never sent to it.
-    if (deps.revoke && !isStoreRef(ref)) {
+    // `revoke` is TikTok's: a store's (vault:glio/zid/…) or Snapchat's (vault:glio/snapchat/…) tokens are never sent to it.
+    if (deps.revoke && !isStoreRef(ref) && !ref.startsWith("vault:glio/snapchat/")) {
       try {
         await deps.revoke(await deps.secrets.get(ref));
         revoked += 1;

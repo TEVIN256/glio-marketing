@@ -2,18 +2,18 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { DEMO_EXTERNAL_ID, TikTokConnector, ZidConnector, demoTikTokFetch } from "@glio/connectors";
+import { DEMO_EXTERNAL_ID, SnapchatConnector, TikTokConnector, ZidConnector, demoTikTokFetch } from "@glio/connectors";
 import { ClaudeCommentaryModel, ResendMailer, createReportSnapshot, deliverReport, normalizeRecipients } from "@glio/reports";
 import { InMemorySecretStore, VaultSecretStore, deleteClientData, disconnectAdAccount, disconnectStore, reconcile, runSync } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
-import { OAUTH_MAX_AGE_SECONDS, TIKTOK_OAUTH_COOKIE, ZID_OAUTH_COOKIE, newPendingConnection } from "@/lib/oauth-state";
+import { OAUTH_MAX_AGE_SECONDS, SNAPCHAT_OAUTH_COOKIE, TIKTOK_OAUTH_COOKIE, ZID_OAUTH_COOKIE, newPendingConnection } from "@/lib/oauth-state";
 import { syncClientStore } from "@/lib/store";
 import { serverDb } from "@/lib/server-db";
 import { loadToday } from "@/lib/today";
 import { marginToBasisPoints } from "@/lib/break-even";
-import { syncClientTikTok } from "@/lib/tiktok-sync";
+import { syncClientAds } from "@/lib/tiktok-sync";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -138,8 +138,8 @@ export async function syncTikTok(formData: FormData) {
 
   let failure: string | null = null;
   try {
-    const synced = await syncClientTikTok(serverDb(), ws, client, from, to);
-    if (synced === 0) throw Object.assign(new Error("No connected TikTok account"), { code: "TIKTOK_NO_ACCOUNTS" });
+    const synced = await syncClientAds(serverDb(), ws, client, from, to);
+    if (synced === 0) throw Object.assign(new Error("No connected ad account"), { code: "TIKTOK_NO_ACCOUNTS" });
   } catch (err) {
     const d = describeError(err);
     failure = d.code;
@@ -394,4 +394,20 @@ export async function disconnectStoreAction(formData: FormData) {
     target = `${base}?e=store&code=${encodeURIComponent(d.code)}#store`;
   }
   redirect(target);
+}
+
+/** Start connecting Snapchat ad accounts (reporting only): state cookie, then Snap's permission page. Owners/managers. */
+export async function connectSnapchat(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden`);
+  if (!env.snapchatConfigured()) redirect(`${base}?e=snapchat&code=SNAPCHAT_NOT_CONFIGURED`);
+  const { state, cookie } = newPendingConnection(ws, client);
+  const secure = ((await headers()).get("x-forwarded-proto") ?? "https") === "https";
+  (await cookies()).set(SNAPCHAT_OAUTH_COOKIE, cookie, {
+    httpOnly: true, secure, sameSite: "lax", path: "/integrations/snapchat", maxAge: OAUTH_MAX_AGE_SECONDS,
+  });
+  redirect(SnapchatConnector.authorizationUrl({ clientId: env.snapchatClientId(), redirectUri: env.snapchatRedirectUri(), state }));
 }

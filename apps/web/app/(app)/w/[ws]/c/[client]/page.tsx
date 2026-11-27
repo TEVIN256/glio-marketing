@@ -20,7 +20,7 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
-import { connectZid, disconnectStoreAction, syncStore } from "./actions";
+import { connectSnapchat, connectZid, disconnectStoreAction, syncStore } from "./actions";
 import { StoreCard } from "@/components/app/StoreCard";
 import { loadStoreView } from "@/lib/store";
 import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, saveMargin, saveValueSources, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
@@ -62,7 +62,7 @@ export default async function ClientDashboard({
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
     supabase.from("report_snapshots").select("id, date_from, date_to, created_at, commentary_id").eq("client_id", client)
       .order("created_at", { ascending: false }).limit(6),
-    supabase.from("ad_accounts").select("id, name, external_id, currency, status").eq("client_id", client).eq("platform", "tiktok").order("created_at"),
+    supabase.from("ad_accounts").select("id, name, external_id, currency, status, platform").eq("client_id", client).in("platform", ["tiktok", "snapchat"]).order("created_at"),
     supabase.from("report_schedules").select("frequency, send_weekday, language, recipients").eq("client_id", client).maybeSingle(),
     supabase.from("report_deliveries").select("id, recipient, status, period_from, period_to, created_at, error_code")
       .eq("client_id", client).order("created_at", { ascending: false }).limit(5),
@@ -96,15 +96,17 @@ export default async function ClientDashboard({
     workspace_id: ws, actor_kind: "user", actor_user_id: user.id, action: "client.viewed", entity_type: "client", entity_id: client,
   });
 
-  const tiktokAccounts = (tiktokRows ?? []).filter((a) => a.external_id !== DEMO_EXTERNAL_ID);
-  const syncs = accountSyncs(tiktokAccounts, (runRows ?? []) as SyncRunRow[]);
+  const adAccounts = (tiktokRows ?? []).filter((a) => a.external_id !== DEMO_EXTERNAL_ID);
+  const tiktokAccounts = adAccounts.filter((a) => a.platform === "tiktok");
+  const snapAccounts = adAccounts.filter((a) => a.platform === "snapchat");
+  const syncs = accountSyncs(adAccounts, (runRows ?? []) as SyncRunRow[]);
   // A figure missing only for some days (e.g. synced before GLIO fetched it): say so, and that a sync fills it in.
   const partial = (metric: MetricId) => Boolean(fig(overview.report, metric)?.reason?.includes("for some days"));
   const someDaysMissing = (m: MetricId) =>
     fig(overview.report, m)?.status === "not_provided" && (partial(m) || (m === "roas" && partial("purchase_value")) || (m === "cpa" && partial("conversions")));
-  const state = connectionState(tiktokAccounts, syncs, overview.hasData);
+  const state = connectionState(adAccounts, syncs, overview.hasData);
   const lastSuccess = [...syncs.values()].map((s) => s.lastSucceededAt).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
-  const canSync = access.canManage && tiktokAccounts.some((a) => a.status === "active");
+  const canSync = access.canManage && adAccounts.some((a) => a.status === "active");
   // Sync button for the empty states: syncs the period on screen.
   const syncForm = (label: string, primary: boolean) => (
     <form action={syncTikTok}>
@@ -156,16 +158,16 @@ export default async function ClientDashboard({
       )}
       {q.e === "period" && <p className="notice error" role="alert">{t.periodError}</p>}
       {q.e === "recipients" && <p className="notice error" role="alert">{t.emailRecipientsError}</p>}
-      {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync" || q.e === "email" || q.e === "store") && (
+      {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync" || q.e === "email" || q.e === "store" || q.e === "snapchat") && (
         <p className="notice error" role="alert">
-          {{ report: t.reportError, demo: t.demoError, tiktok: t.tiktokError, sync: t.syncError, email: t.emailError, store: t.storeError }[q.e]}{" "}
+          {{ report: t.reportError, demo: t.demoError, tiktok: t.tiktokError, sync: t.syncError, email: t.emailError, store: t.storeError, snapchat: t.snapchatError }[q.e]}{" "}
           {hintFor(q.code, lang)}{" "}
           {q.code && <code className="num">({q.code})</code>}
         </p>
       )}
       {q.tt === "connected" && (
         <p className={q.s && q.s !== "ok" && q.s !== "none" ? "notice warn" : "notice"} role="status">
-          {fill(t.tiktokConnected, q.n)} {Number(q.c) > 0 && fill(t.tiktokConflicts, q.c)}{" "}
+          {fill(q.pl === "snapchat" ? t.snapchatConnected : t.tiktokConnected, q.n)} {Number(q.c) > 0 && fill(t.tiktokConflicts, q.c)}{" "}
           {q.s === "ok" && t.tiktokFirstSyncOk}
           {q.s && q.s !== "ok" && q.s !== "none" && (
             <>
@@ -233,8 +235,8 @@ export default async function ClientDashboard({
             <input type="hidden" name="client" value={client} />
             <input type="hidden" name="from" value={period.from} />
             <input type="hidden" name="to" value={period.to} />
-            {access.canManage && tiktokAccounts.some((a) => a.status === "active") && (
-              <button className="secondary" type="submit" formAction={syncTikTok}>{t.tiktokSync}</button>
+            {canSync && (
+              <button className="secondary" type="submit" formAction={syncTikTok}>{snapAccounts.length > 0 ? t.adSync : t.tiktokSync}</button>
             )}
             {env.demoMode() && access.canManage && (
               <button className="secondary" type="submit" formAction={loadDemoData} title={t.demoNote}>{t.demoData}</button>
@@ -273,6 +275,13 @@ export default async function ClientDashboard({
                   <input type="hidden" name="ws" value={ws} />
                   <input type="hidden" name="client" value={client} />
                   <button type="submit">{t.tiktokConnect}</button>
+                </form>
+              )}
+              {env.snapchatConfigured() && (
+                <form action={connectSnapchat}>
+                  <input type="hidden" name="ws" value={ws} />
+                  <input type="hidden" name="client" value={client} />
+                  <button type="submit" className={env.tiktokConfigured() ? "secondary" : undefined}>{t.snapchatConnect}</button>
                 </form>
               )}
               {env.demoMode() && (
@@ -457,6 +466,52 @@ export default async function ClientDashboard({
           ))}
         </section>
       </div>
+
+      {(snapAccounts.length > 0 || (access.canManage && env.snapchatConfigured())) && (
+        <section id="snapchat" className="card stack" aria-labelledby="snapchat-h">
+          <div className="card-head"><h2 id="snapchat-h">{t.snapchatTitle}</h2></div>
+          {snapAccounts.length > 0 ? (
+            <ul className="list">
+              {snapAccounts.map((a) => (
+                <li key={a.id} className="account-row">
+                  <span>
+                    <span className="campaign-name">{a.name ?? a.external_id}</span>
+                    <span className="campaign-id" dir="ltr">{a.external_id}{a.currency ? ` · ${a.currency}` : ""}</span>
+                  </span>
+                  <span className="account-sync">
+                    <span className={`badge ${a.status === "active" ? "ok" : a.status === "error" ? "drift" : "other"}`}>{statusLabel[a.status] ?? a.status}</span>
+                    <AccountSyncLine sync={syncs.get(a.id)} t={t} lang={lang} />
+                    {access.canManage && a.status === "active" && (
+                      <details className="row-menu disconnect-menu">
+                        <summary className="link-button">{t.tiktokDisconnect}</summary>
+                        <form className="row-menu-panel stack" action={disconnectTikTokAccount}>
+                          <input type="hidden" name="ws" value={ws} />
+                          <input type="hidden" name="client" value={client} />
+                          <input type="hidden" name="account" value={a.id} />
+                          <p className="small">{t.snapchatDisconnectExplain}</p>
+                          <button type="submit" className="secondary danger">{t.tiktokDisconnectConfirm}</button>
+                        </form>
+                      </details>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">{t.snapchatNone}</p>
+          )}
+          <p className="fine-print">{t.snapchatReadOnly}</p>
+          {access.canManage && env.snapchatConfigured() && (
+            <form action={connectSnapchat}>
+              <input type="hidden" name="ws" value={ws} />
+              <input type="hidden" name="client" value={client} />
+              <button type="submit" className={snapAccounts.length > 0 ? "secondary" : undefined}>
+                {snapAccounts.length > 0 ? t.snapchatReconnect : t.snapchatConnect}
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       {(storeView || (access.canManage && env.zidConfigured())) && (
         <StoreCard

@@ -56,7 +56,8 @@ export async function disconnectAdAccount(
   let revokeError: string | null = null;
   if (out.ref && !out.shared) {
     try {
-      if (deps.revoke && !out.ref.startsWith("demo://")) {
+      // `revoke` is TikTok's; Snapchat has no revoke call (the user deletes GLIO at accounts.snapchat.com → Manage Apps).
+      if (deps.revoke && out.account.platform === "tiktok" && !out.ref.startsWith("demo://")) {
         await deps.revoke(await deps.secrets.get(out.ref));
         revokedAtPlatform = true;
       }

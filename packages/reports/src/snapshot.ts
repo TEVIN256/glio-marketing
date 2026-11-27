@@ -63,7 +63,8 @@ export async function loadChannelTotals(
     impressions: summed(r.n, r.n_impr, r.impressions),
     clicks: summed(r.n, r.n_clicks, r.clicks),
     conversionsScaled: summed(r.n, r.n_conv, r.conversions, true),
-    purchaseValueMinor: combine(sources.map((s) =>
+    // In-app and TikTok Shop values are TikTok metrics: other platforms count their own purchase value only.
+    purchaseValueMinor: combine((r.platform === "tiktok" ? sources : ["website" as const]).map((s) =>
       s === "app" ? summed(r.n, r.n_app, r.app_value) : s === "shop" ? summed(r.n, r.n_shop, r.shop_revenue) : summed(r.n, r.n_value, r.purchase_value))),
     rawPayloadIds: (r.raw_ids as Array<string | number>).map(Number),
     reconciliation: reconFor(r.platform),

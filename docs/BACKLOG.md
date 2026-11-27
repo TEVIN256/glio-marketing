@@ -15,5 +15,6 @@ When an item is built, move its outcome to `DECISIONS.md` (ADR) and `RUNBOOK.md`
 
 - **TikTok Reporting API v2.0.** v1.3 has no announced end date. When it gets one, move the report calls behind the
   same connector interface (ADR-028).
-- **More channels:** Snapchat, Meta, Google Ads. The connector interface is ready; each needs its own platform app
-  review.
+- **Snapchat (built 2026-11-27, ADR-041):** owner creates the OAuth app in Snap Business Manager and adds the keys in
+  Vercel (RUNBOOK), then the first real connection is compared with Ads Manager. Later: "today so far" for Snapchat.
+- **More channels:** Meta, Google Ads. The connector interface is ready; each needs its own platform app review.

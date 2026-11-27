@@ -8,6 +8,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
  */
 export const TIKTOK_OAUTH_COOKIE = "glio_tiktok_oauth";
 export const ZID_OAUTH_COOKIE = "glio_zid_oauth";
+export const SNAPCHAT_OAUTH_COOKIE = "glio_snapchat_oauth";
 // Long enough to read TikTok's permission page (and switch accounts) without rushing.
 export const OAUTH_MAX_AGE_SECONDS = 1800;
 

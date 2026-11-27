@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { TIKTOK_OAUTH_COOKIE, readPendingConnection } from "@/lib/oauth-state";
 import { serverDb } from "@/lib/server-db";
-import { finishTikTokConnection } from "@/lib/tiktok-connect";
+import { finishAdConnection } from "@/lib/tiktok-connect";
 
 // The first sync of the last 30 days runs before the redirect, so the client page opens with figures.
 export const maxDuration = 60;
@@ -20,7 +20,7 @@ export const maxDuration = 60;
  * 3. The auth code is exchanged server-side; the token goes to Supabase Vault,
  *    the authorised ad accounts are attached to the client, and each is audited.
  * 4. One ad account: attached at once. Several: the owner chooses which ones belong
- *    to this client on /integrations/tiktok/select/<id> (migration 0015, ADR-032).
+ *    to this client on /integrations/select/<id> (migration 0015, ADR-032).
  * 5. The last 30 complete days are synced right away (the page's default period).
  *    If that fails the accounts stay connected and the page says so.
  * The auth code and token are never logged, stored in tables, or shown.
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         { db, secrets },
         { workspaceId: pending.ws, clientId: pending.client, userId: access.user.id, platform: "tiktok", accessToken, accounts },
       );
-      return go(`/integrations/tiktok/select/${id}`);
+      return go(`/integrations/select/${id}`);
     }
     const result = await connectAdAccounts(
       { db, secrets },
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         accessToken, secretRef: newSecretRef("tiktok"), accounts,
       },
     );
-    return go(`${base}?${await finishTikTokConnection(db, pending.ws, pending.client, result)}`);
+    return go(`${base}?${await finishAdConnection(db, pending.ws, pending.client, result, "tiktok")}`);
   } catch (err) {
     const d = describeError(err);
     console.error(JSON.stringify({ event: "tiktok_connect_failed", client: pending.client, code: d.code, error: d.message }));

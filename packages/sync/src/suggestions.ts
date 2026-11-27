@@ -132,7 +132,7 @@ export async function suggestForClient(
             count(m.spend_minor)::int as n_spend, coalesce(sum(m.spend_minor), 0)::text as spend,
             count(m.conversions)::int as n_conv, coalesce(sum(m.conversions), 0)::text as conv
      from public.metric_daily m
-     join public.ad_accounts a on a.id = m.ad_account_id and a.status = 'active'
+     join public.ad_accounts a on a.id = m.ad_account_id and a.status = 'active' and a.platform = 'tiktok' -- the only platform with an executor
      where m.client_id = $1 and m.level = 'campaign' and m.date between $2 and $3
      group by m.ad_account_id, m.entity_id, m.currency`,
     [args.clientId, window.from, window.to],

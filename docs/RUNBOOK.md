@@ -141,6 +141,20 @@ Owners open **https://www.glioagency.org/diagnostics**. It checks, live and with
 - Sidebar → Activity (owners/managers of the workspace): the audit log, newest first, 200 per page, filter by client and kind (viewing data / changes / access and sharing). Labels for every action live in `apps/web/lib/activity.ts` (a test fails if a new action has none).
 - Reads recorded: `client.viewed`, `report.viewed`, `figure.viewed`, `report.share_viewed` (share links: link and time only). ADR-036.
 
+## Snapchat Marketing API app (ADR-041)
+
+Reporting only (GLIO never changes anything on Snapchat). Setup (owner, once):
+
+1. Sign in at **business.snapchat.com** with a login that is **Organization Admin** of GLIO's own Snap Business organization (create one if needed: GLIO's legal name, Saudi Arabia).
+2. **Business Details → OAuth apps** (direct: `https://business.snapchat.com/<ORGANIZATION_ID>/settings/business-details`). If the section is missing, the login isn't an Organization Admin.
+3. **Create an OAuth app**: name "GLIO", redirect URI exactly `https://www.glioagency.org/integrations/snapchat/callback`. It **can't be edited later** (a new app would be needed). Accept the Snap Developer Terms and Snap Business Tools Terms (read them first; same lawyer as the Zid agreement).
+4. Copy **Client ID** and **Client Secret** at once: **the secret is shown only once**. In Vercel add `SNAPCHAT_CLIENT_ID` (type Config) and `SNAPCHAT_CLIENT_SECRET` (type **Secret**), Production, then redeploy. Diagnostics shows "SNAPCHAT_CLIENT_ID / SNAPCHAT_CLIENT_SECRET: set".
+5. Connecting a client: Snap's only permission also allows changes, so authorise with a Snapchat login that has a **read-only role** (e.g. Reports / Data Analyst) on the client's ad account. Client page → **Snapchat → Connect Snapchat** → approve; several ad accounts → choose the client's. GLIO syncs the last 30 days.
+
+**First real connection — verify before relying on it:** for a recent 7-day period, compare Spend, Impressions, Swipe Ups, Purchases and Purchase value in Snap Ads Manager (same attribution: 28-day swipe / 1-day view, same time zone) with GLIO. Spend may differ by under half a halala per campaign-day (rounding from micro-currency). Note that Snap finalises metrics 48 hours after the day.
+
+Revoking: accounts.snapchat.com → Manage Apps → delete GLIO (Snap has no revoke API). Disconnecting in GLIO deletes the stored token.
+
 ## Zid store connection (store sales, ADR-039)
 
 Read-only. One Zid store per client. Setup (owner, once):
@@ -424,6 +438,15 @@ select
      and tablename in ('store_connections', 'store_credentials', 'store_payloads', 'store_sales_daily') and rowsecurity) as store_tables_rls, -- expect 4
   (select count(*) from pg_policies where schemaname = 'public' and tablename = 'store_credentials')                  as credential_policies, -- expect 0
   (select count(*) from pg_policies where schemaname = 'public')                                                     as policies;            -- expect 57
+```
+
+### Diagnostic for 20261127000005_snapchat
+
+```sql
+select
+  pg_get_constraintdef(oid) like '%snapchat%'                       as picker_allows_snapchat, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')    as policies                -- expect 57
+from pg_constraint where conname = 'pending_ad_connections_platform_check';
 ```
 
 ## Migration log

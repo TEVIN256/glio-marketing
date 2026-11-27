@@ -24,7 +24,8 @@ export async function deleteWorkspaceData(
     }
     const refs = (await q(
       `select secret_ref from public.ad_account_credentials where workspace_id = $1
-       union select secret_ref from public.pending_ad_connections where workspace_id = $1`,
+       union select secret_ref from public.pending_ad_connections where workspace_id = $1
+       union select secret_ref from public.store_credentials where workspace_id = $1`,
       [args.workspaceId],
     )).map((r) => r.secret_ref as string);
     await q(

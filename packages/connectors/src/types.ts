@@ -8,7 +8,7 @@
  * the account's currency, and never rounds.
  */
 
-export type Platform = "tiktok" | "snapchat" | "meta" | "google_ads" | "google_business_profile";
+export type Platform = "tiktok" | "snapchat" | "meta" | "google_ads" | "google_business_profile" | "zid";
 export type MetricLevel = "account" | "campaign" | "adgroup" | "ad";
 
 /** One entity's numbers for one day. `null` means "not provided by platform". */

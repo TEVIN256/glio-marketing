@@ -117,6 +117,20 @@ beforeAll(async () => {
          values ($1, $2, (select user_id from memberships where workspace_id = $1 and role = 'owner' limit 1), 'tiktok',
                  'vault:glio/tiktok/seed', '[]')`,
         [a.workspace_id, a.client_id]);
+      const store = await one(q,
+        `insert into store_connections (workspace_id, client_id, platform, external_store_id, name, currency, timezone)
+         values ($1, $2, 'zid', $3, 'Test Store', 'SAR', 'Asia/Riyadh') returning id`,
+        [a.workspace_id, a.client_id, `test-store-${a.id}`]);
+      await q("insert into store_credentials (connection_id, workspace_id, secret_ref) values ($1, $2, 'vault:glio/zid/seed')", [store.id, a.workspace_id]);
+      const sp = await one(q,
+        `insert into store_payloads (workspace_id, client_id, connection_id, platform, endpoint, request_params, payload, payload_sha256)
+         values ($1, $2, $3, 'zid', '/test/', '{}', '{"orders": []}', repeat('e', 64)) returning id`,
+        [a.workspace_id, a.client_id, store.id]);
+      await q(
+        `insert into store_sales_daily (workspace_id, client_id, connection_id, platform, date, currency, orders, gross_sales_minor,
+                                        cancelled_orders, refunded_orders, refunded_minor, partially_refunded_orders, net_sales_minor, raw_payload_id)
+         values ($1, $2, $3, 'zid', '2026-01-01', 'SAR', 2, 20000, 0, 0, 0, 0, 20000, $4)`,
+        [a.workspace_id, a.client_id, store.id, sp.id]);
     }
   });
 });
@@ -243,6 +257,7 @@ describe("roles and credentials", () => {
 
   it("platform credentials are invisible to every signed-in user, even the owner", async () => {
     await expect(db.as(user(alice), (q) => q("select * from ad_account_credentials"))).rejects.toThrow(/permission denied/);
+    await expect(db.as(user(alice), (q) => q("select * from store_credentials"))).rejects.toThrow(/permission denied/);
     const row = await db.as(service, (q) => one(q, "select count(*)::int as n from ad_account_credentials"));
     expect(row.n).toBe(3); // one per seeded ad account
   });
@@ -466,6 +481,31 @@ describe("invitations (migration 0009)", () => {
 
   it("signed-out visitors can't use the functions at all", async () => {
     await expect(db.as(anon, (q) => q("select public.accept_invitation($1)", [H("a")]))).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe("store sales (Zid)", () => {
+  it("users read their own clients' store sales but cannot write them; the payload archive is immutable", async () => {
+    await db.as(user(carol), async (q) => {
+      expect((await q("select distinct client_id from store_sales_daily")).map((r) => r.client_id)).toEqual([clientA1]);
+      expect((await q("select distinct client_id from store_connections")).map((r) => r.client_id)).toEqual([clientA1]);
+    });
+    await expect(db.as(user(alice), (q) => q("update store_sales_daily set orders = 99 where client_id = $1", [clientA1])))
+      .rejects.toThrow(/permission denied/);
+    await expect(db.as(service, (q) => q("update store_payloads set payload = '{}'"))).rejects.toThrow(/permission denied/);
+    await expect(db.as(superuser, (q) => q("update store_payloads set payload = '{}'"))).rejects.toThrow(/immutable/);
+    await expect(db.as(service, (q) => q("delete from store_payloads"))).rejects.toThrow(/immutable/);
+  });
+
+  it("deleting a store connection removes its sales, payloads and credential reference", async () => {
+    await db.as(service, async (q) => {
+      const [c] = await q("select id from store_connections where client_id = $1", [clientA2]);
+      await q("delete from store_connections where id = $1", [c!.id]);
+      for (const t of ["store_sales_daily", "store_payloads", "store_credentials"]) {
+        const [n] = await q(`select count(*)::int as n from ${t} where connection_id = $1`, [c!.id]);
+        expect({ t, n: n!.n }).toEqual({ t, n: 0 });
+      }
+    });
   });
 });
 

@@ -15,11 +15,12 @@ export type CheckStatus = "ok" | "bad" | "warn" | "info";
 export interface Check { group: string; name: string; status: CheckStatus; detail: string }
 
 /** The latest migration's objects and the expected policy count (keep in step with docs/RUNBOOK.md). */
-export const EXPECTED_POLICIES = 54;
+export const EXPECTED_POLICIES = 57;
 const EXPECTED_TABLES = [
   "workspaces", "clients", "ad_accounts", "ad_account_credentials", "sync_runs", "raw_platform_payloads", "metric_daily",
   "reconciliation_checks", "report_snapshots", "ai_commentary", "report_schedules", "report_deliveries", "approval_requests",
   "client_guardrails", "notification_settings", "invitations", "suggestion_settings", "report_shares", "report_unsubscribes", "pending_ad_connections", "metric_intraday", "client_economics",
+  "store_connections", "store_credentials", "store_payloads", "store_sales_daily",
 ];
 const EXPECTED_FUNCTIONS = ["decide_approval", "accept_invitation", "invitation_preview", "purge_expired_data"];
 /** Columns added to existing tables by later migrations (the code writes them; a missing one breaks syncs or emails). */
@@ -47,6 +48,9 @@ export function configChecks(e: NodeJS.ProcessEnv = process.env): Check[] {
   need("CRON_SECRET", "the daily job");
   rows.push({ group: "Configuration", name: "SUPABASE_SECRET_KEY", status: set("SUPABASE_SECRET_KEY") ? "ok" : "warn",
     detail: set("SUPABASE_SECRET_KEY") ? "set" : "missing: people can't delete their own account (manual by email until set)" });
+  const zid = set("ZID_CLIENT_ID") && set("ZID_CLIENT_SECRET");
+  rows.push({ group: "Configuration", name: "ZID_CLIENT_ID / ZID_CLIENT_SECRET", status: zid ? "ok" : "info",
+    detail: zid ? "set" : "not set: Connect Zid store is hidden (optional)" });
   if (set("TIKTOK_APP_ID")) {
     const id = String(e.TIKTOK_APP_ID).trim();
     rows.push({ group: "Configuration", name: "TIKTOK_APP_ID looks like an app id", status: /^\d{10,25}$/.test(id) ? "ok" : "bad",

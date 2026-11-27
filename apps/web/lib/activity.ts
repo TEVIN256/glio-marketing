@@ -30,6 +30,8 @@ export const ACTIONS: Record<string, { group: ActivityGroup | null; en: string; 
   "client.deleted": A("changes", "Deleted a client and its data", "حذف عميلًا وبياناته"),
   "ad_account.connected": A("access", "Connected an ad account", "ربط حسابًا إعلانيًا"),
   "ad_account.disconnected": A("access", "Disconnected an ad account", "فصل حسابًا إعلانيًا"),
+  "store.connected": A("access", "Connected a store (Zid)", "ربط متجرًا (زد)"),
+  "store.disconnected": A("access", "Disconnected a store (Zid)", "فصل متجرًا (زد)"),
   "report.shared": A("access", "Created a share link", "أنشأ رابط مشاركة"),
   "report.share_revoked": A("access", "Revoked a share link", "ألغى رابط مشاركة"),
   "member.invited": A("access", "Invited a team member", "دعا عضوًا"),

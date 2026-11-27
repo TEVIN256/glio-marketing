@@ -20,6 +20,9 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
+import { connectZid, disconnectStoreAction, syncStore } from "./actions";
+import { StoreCard } from "@/components/app/StoreCard";
+import { loadStoreView } from "@/lib/store";
 import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, saveMargin, saveValueSources, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
 import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
@@ -53,7 +56,7 @@ export default async function ClientDashboard({
   const hourMetric: HourMetric = HOUR_METRICS.includes(q.hm as HourMetric) ? (q.hm as HourMetric) : "spend";
   const keepAll: Record<string, string> = { ...keepRange, ...(requestedMetric === "spend" ? {} : { m: requestedMetric }) };
 
-  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }, todayView, { data: economics }] = await Promise.all([
+  const [overview, { data: workspace }, { data: snapshots }, { data: tiktokRows }, { data: schedule }, { data: recentDeliveries }, { data: pendingRows }, { data: guardrails }, { data: sgSettings }, { data: unsubscribedRows }, { data: runRows }, todayView, { data: economics }, storeView] = await Promise.all([
     // Server read AFTER the RLS check above (clientAccess).
     loadOverview(serverDb(), client, period),
     supabase.from("workspaces").select("name").eq("id", ws).maybeSingle(),
@@ -74,6 +77,7 @@ export default async function ClientDashboard({
     // Today so far (provisional): refreshed here when older than 10 minutes. Server read after the RLS check above.
     loadToday(serverDb(), client, { refresh: true }),
     supabase.from("client_economics").select("gross_margin_pct, value_sources").eq("client_id", client).maybeSingle(),
+    loadStoreView(serverDb(), client, period),
   ]);
   const sg = sgSettings ?? {
     enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
@@ -152,9 +156,9 @@ export default async function ClientDashboard({
       )}
       {q.e === "period" && <p className="notice error" role="alert">{t.periodError}</p>}
       {q.e === "recipients" && <p className="notice error" role="alert">{t.emailRecipientsError}</p>}
-      {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync" || q.e === "email") && (
+      {(q.e === "report" || q.e === "demo" || q.e === "tiktok" || q.e === "sync" || q.e === "email" || q.e === "store") && (
         <p className="notice error" role="alert">
-          {{ report: t.reportError, demo: t.demoError, tiktok: t.tiktokError, sync: t.syncError, email: t.emailError }[q.e]}{" "}
+          {{ report: t.reportError, demo: t.demoError, tiktok: t.tiktokError, sync: t.syncError, email: t.emailError, store: t.storeError }[q.e]}{" "}
           {hintFor(q.code, lang)}{" "}
           {q.code && <code className="num">({q.code})</code>}
         </p>
@@ -171,6 +175,9 @@ export default async function ClientDashboard({
         </p>
       )}
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
+      {q.st === "connected" && <p className="notice" role="status">{t.storeConnected}</p>}
+      {q.st === "synced" && <p className="notice" role="status">{t.storeSynced}</p>}
+      {q.st === "disconnected" && <p className="notice" role="status">{t.storeDisconnected}</p>}
       {q.tt === "cancelled" && <p className="notice" role="status">{t.tiktokConnectCancelled}</p>}
       {q.pm === "saved" && <p className="notice" role="status">{t.marginSaved}</p>}
       {q.pm === "sources" && <p className="notice" role="status">{t.valueSourcesSaved}</p>}
@@ -450,6 +457,13 @@ export default async function ClientDashboard({
           ))}
         </section>
       </div>
+
+      {(storeView || (access.canManage && env.zidConfigured())) && (
+        <StoreCard
+          view={storeView} t={t} lang={lang} ws={ws} client={client} period={period} canManage={access.canManage}
+          actions={{ connect: connectZid, sync: syncStore, disconnect: disconnectStoreAction }}
+        />
+      )}
 
       <section id="profit" className="card stack" aria-labelledby="profit-h">
         <div className="card-head"><h2 id="profit-h">{t.profitTitle}</h2></div>

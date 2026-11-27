@@ -48,7 +48,10 @@ export async function deleteClientData(
       `select distinct c.secret_ref from public.ad_account_credentials c
        join public.ad_accounts a on a.id = c.ad_account_id where a.client_id = $1
        union
-       select secret_ref from public.pending_ad_connections where client_id = $1`,
+       select secret_ref from public.pending_ad_connections where client_id = $1
+       union
+       select c.secret_ref from public.store_credentials c
+       join public.store_connections s on s.id = c.connection_id where s.client_id = $1`,
       [args.clientId],
     )).map((r) => r.secret_ref as string);
 

@@ -2,13 +2,14 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { DEMO_EXTERNAL_ID, TikTokConnector, demoTikTokFetch } from "@glio/connectors";
+import { DEMO_EXTERNAL_ID, TikTokConnector, ZidConnector, demoTikTokFetch } from "@glio/connectors";
 import { ClaudeCommentaryModel, ResendMailer, createReportSnapshot, deliverReport, normalizeRecipients } from "@glio/reports";
-import { InMemorySecretStore, VaultSecretStore, deleteClientData, disconnectAdAccount, reconcile, runSync } from "@glio/sync";
+import { InMemorySecretStore, VaultSecretStore, deleteClientData, disconnectAdAccount, disconnectStore, reconcile, runSync } from "@glio/sync";
 import { clientAccess } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
-import { OAUTH_MAX_AGE_SECONDS, TIKTOK_OAUTH_COOKIE, newPendingConnection } from "@/lib/oauth-state";
+import { OAUTH_MAX_AGE_SECONDS, TIKTOK_OAUTH_COOKIE, ZID_OAUTH_COOKIE, newPendingConnection } from "@/lib/oauth-state";
+import { syncClientStore } from "@/lib/store";
 import { serverDb } from "@/lib/server-db";
 import { loadToday } from "@/lib/today";
 import { marginToBasisPoints } from "@/lib/break-even";
@@ -334,4 +335,63 @@ export async function saveValueSources(formData: FormData) {
     entity_type: "client", entity_id: client, metadata: { value_sources: chosen },
   });
   redirect(`${base}?pm=sources#profit`);
+}
+
+/** Start connecting the client's Zid store (read-only): state cookie, then Zid's authorize page. Owners/managers. */
+export async function connectZid(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden#store`);
+  if (!env.zidConfigured()) redirect(`${base}?e=store&code=ZID_NOT_CONFIGURED#store`);
+  const { state, cookie } = newPendingConnection(ws, client);
+  const secure = ((await headers()).get("x-forwarded-proto") ?? "https") === "https";
+  (await cookies()).set(ZID_OAUTH_COOKIE, cookie, {
+    httpOnly: true, secure, sameSite: "lax", path: "/integrations/zid", maxAge: OAUTH_MAX_AGE_SECONDS,
+  });
+  redirect(ZidConnector.authorizationUrl({ clientId: env.zidClientId(), redirectUri: env.zidRedirectUri(), state }));
+}
+
+/** Sync the client's store sales for the period on screen (at most the last 92 days of it). Owners/managers. */
+export async function syncStore(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const from = String(formData.get("from"));
+  const to = String(formData.get("to"));
+  const base = `/w/${ws}/c/${client}`;
+  if (!ISO.test(from) || !ISO.test(to) || to < from) redirect(`${base}?e=period`);
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden#store`);
+  let failure: string | null = null;
+  try {
+    if ((await syncClientStore(serverDb(), ws, client, from, to)) === 0) failure = "STORE_NOT_FOUND";
+  } catch (err) {
+    const d = describeError(err);
+    failure = d.code;
+    console.error(JSON.stringify({ event: "store_sync_failed", client, code: d.code, error: d.message }));
+  }
+  redirect(failure ? `${base}?from=${from}&to=${to}&e=store&code=${encodeURIComponent(failure)}#store`
+    : `${base}?from=${from}&to=${to}&st=synced#store`);
+}
+
+/** Disconnect the client's store: its sales are deleted and its tokens removed from Vault. Owners/managers. */
+export async function disconnectStoreAction(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const connectionId = String(formData.get("connection"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden#store`);
+  let target = `${base}?e=store&code=NOT_FOUND#store`;
+  try {
+    const db = serverDb();
+    const ok = await disconnectStore({ db, secrets: new VaultSecretStore(db) }, { workspaceId: ws, clientId: client, connectionId, userId: access.user.id });
+    if (ok) target = `${base}?st=disconnected#store`;
+  } catch (err) {
+    const d = describeError(err);
+    console.error(JSON.stringify({ event: "store_disconnect_failed", client, code: d.code, error: d.message }));
+    target = `${base}?e=store&code=${encodeURIComponent(d.code)}#store`;
+  }
+  redirect(target);
 }

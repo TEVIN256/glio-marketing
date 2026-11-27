@@ -522,3 +522,6 @@ a.sidebar-user:hover { color: #fff; text-decoration: underline; }
 .sources-form fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
 .sources-form legend { font-weight: 600; margin-block-end: 6px; }
 .sources-form .check { display: inline-flex; gap: 6px; align-items: center; font-weight: 400; }
+
+/* Store sales card */
+.store-actions { align-items: center; }

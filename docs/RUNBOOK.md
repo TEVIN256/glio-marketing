@@ -141,6 +141,23 @@ Owners open **https://www.glioagency.org/diagnostics**. It checks, live and with
 - Sidebar → Activity (owners/managers of the workspace): the audit log, newest first, 200 per page, filter by client and kind (viewing data / changes / access and sharing). Labels for every action live in `apps/web/lib/activity.ts` (a test fails if a new action has none).
 - Reads recorded: `client.viewed`, `report.viewed`, `figure.viewed`, `report.share_viewed` (share links: link and time only). ADR-036.
 
+## Zid store connection (store sales, ADR-039)
+
+Read-only. One Zid store per client. Setup (owner, once):
+
+1. Sign in to the Zid Partner Dashboard (partner.zid.sa). If you don't have a partner account yet, register one; use an email that isn't the store's login (e.g. dev@glioagency.org).
+2. **My Apps → Create Application → Private Application.** Name "GLIO" (Arabic and English), category Analytics/Reports, maintainer email info@glioagency.org. If it asks which store, give WAKE UP's Store ID (Zid dashboard → Settings).
+3. **App scopes:** only *Orders: read* (`orders.read`) and *Store details: read* (`third_store_details_read`). Justification: "Read-only daily sales totals to compare with advertising results; customer details are not stored."
+4. **App links:** Application URL `https://www.glioagency.org`, Redirection URL `https://www.glioagency.org/integrations/zid/start`, Callback URL `https://www.glioagency.org/integrations/zid/callback` (exactly; a mismatch fails at the token exchange).
+5. **General settings → API keys:** copy *Client ID* and *Client secret* with the copy icons. In Vercel add `ZID_CLIENT_ID` (type Config) and `ZID_CLIENT_SECRET` (type **Secret**), Production, then redeploy. Diagnostics shows "ZID_CLIENT_ID / ZID_CLIENT_SECRET: set".
+6. Sign in to WAKE UP's Zid store dashboard in the same browser, open the client in GLIO, **Store sales (Zid) → Connect Zid store**, approve on Zid's page. GLIO syncs the last 30 days.
+
+If Zid instead sends you to `/integrations/zid/start` (e.g. after activating the app from Zid), choose the client there.
+
+**First real connection — verify before relying on it:** for 3 recent days, compare GLIO's Orders and Gross for each day with the Zid dashboard's orders report for the same day. Differences to look for: day boundaries (time zone of `date_from`/`date_to`), cancelled/voided handling, partial refunds. Record the result here.
+
+Daily job: refreshes the store's tokens when older than 30 days (Zid's refresh token lives 1 year) and re-syncs the last 7 days. A refused sign-in (app uninstalled) marks the store "needs reconnecting".
+
 ## Profitability (break-even ROAS)
 
 - Client page → "Profitability" (owners/managers): enter the client's approximate gross margin (%). GLIO shows break-even ROAS (100 ÷ margin), the period's ROAS, and an estimated gross profit after ad spend (TikTok-credited purchase value × margin − spend). The ROAS tile says "Break-even X · above/below break-even"; each campaign's ROAS is marked ▲ (above) or ▼ (below). Audit: `client.margin_updated`. ADR-035.
@@ -397,6 +414,16 @@ select
   exists(select 1 from information_schema.columns where table_schema = 'public'
      and table_name = 'client_economics' and column_name = 'value_sources')                 as sources_column, -- expect true
   (select count(*) from pg_policies where schemaname = 'public')                             as policies;       -- expect 54
+```
+
+### Diagnostic for 20261127000004_store_sales
+
+```sql
+select
+  (select count(*) from pg_tables where schemaname = 'public'
+     and tablename in ('store_connections', 'store_credentials', 'store_payloads', 'store_sales_daily') and rowsecurity) as store_tables_rls, -- expect 4
+  (select count(*) from pg_policies where schemaname = 'public' and tablename = 'store_credentials')                  as credential_policies, -- expect 0
+  (select count(*) from pg_policies where schemaname = 'public')                                                     as policies;            -- expect 57
 ```
 
 ## Migration log

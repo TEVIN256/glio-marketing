@@ -145,6 +145,14 @@ export const site = {
         ],
       },
       {
+        heading: "بيانات المتجر الإلكتروني (زد)",
+        paragraphs: [
+          "عند ربط متجر في زد بموافقة صاحبه، نقرأ تفاصيل المتجر وقائمة الطلبات فقط (قراءة دون تعديل) لنعرض ما باعه المتجر فعلًا بجانب نتائج الإعلانات.",
+          "نحذف بيانات العملاء (الأسماء والجوالات والبريد والعناوين) قبل الحفظ، ونحفظ لكل طلب رقمه ووقته وحالته وإجماليه وعملته ومصدره فقط، ومنها مجاميع يومية.",
+          "يمكنك فصل المتجر في أي وقت من داخل غليو فتُحذف مبيعاته ومفاتيح الوصول، ولإلغاء الإذن نهائيًا ألغِ تثبيت التطبيق من لوحة زد.",
+        ],
+      },
+      {
         heading: "كيف نستخدم البيانات",
         paragraphs: ["نستخدم البيانات لعرض الأداء وإعداد التقارير ومطابقتها مع المنصة، وإرسال التنبيهات والتقارير التي تطلبها، وحماية الحسابات ومنع إساءة الاستخدام، والوفاء بالالتزامات النظامية."],
       },
@@ -349,6 +357,14 @@ export const site = {
           "When you connect an ad account (for example TikTok for Business), the platform grants us an access token with your consent. We use it only to read data from the ad accounts you selected, and to make changes you explicitly approve inside Glio.",
           "We store the platform's original responses unchanged to prove where every reported figure comes from. We do not sell this data, share it with other advertisers, or use it to train AI models.",
           "You can disconnect at any time from inside Glio or from the ad platform's settings, after which we stop fetching data.",
+        ],
+      },
+      {
+        heading: "Online store data (Zid)",
+        paragraphs: [
+          "When a store owner connects their Zid store with their consent, we read only the store's details and its order list (read-only, no changes) to show what the store actually sold next to advertising results.",
+          "Customer details (names, phone numbers, emails and addresses) are removed before anything is saved. For each order we keep only its number, time, status, total, currency and sales channel, and daily totals computed from them.",
+          "You can disconnect the store from inside Glio at any time, which deletes its sales and access keys; to withdraw access completely, also uninstall the app in the Zid dashboard.",
         ],
       },
       {

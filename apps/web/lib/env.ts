@@ -25,6 +25,12 @@ export const env = {
   tiktokConfigured: () => Boolean(process.env.TIKTOK_APP_ID && process.env.TIKTOK_APP_SECRET),
   /** Must match the "Advertiser redirect URL" registered with TikTok exactly. */
   tiktokRedirectUri: () => process.env.TIKTOK_REDIRECT_URI || "https://www.glioagency.org/integrations/tiktok/callback",
+  /** Zid Partner app (read-only store sales). The secret is SERVER ONLY. */
+  zidClientId: () => required("ZID_CLIENT_ID"),
+  zidClientSecret: () => required("ZID_CLIENT_SECRET"),
+  zidConfigured: () => Boolean(process.env.ZID_CLIENT_ID && process.env.ZID_CLIENT_SECRET),
+  /** Must match the app's Callback URL in Zid's Partner Dashboard exactly. */
+  zidRedirectUri: () => process.env.ZID_REDIRECT_URI || "https://www.glioagency.org/integrations/zid/callback",
   /** Report emails (Resend). The key is SERVER ONLY. */
   resendApiKey: () => process.env.RESEND_API_KEY ?? "",
   emailConfigured: () => Boolean(process.env.RESEND_API_KEY),

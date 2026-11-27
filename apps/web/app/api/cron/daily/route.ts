@@ -8,13 +8,15 @@ import { notifyApprovals } from "@/lib/notify-run";
 import { env } from "@/lib/env";
 import { describeError } from "@/lib/errors";
 import { serverDb } from "@/lib/server-db";
+import { syncClientStore } from "@/lib/store";
 import { syncClientTikTok } from "@/lib/tiktok-sync";
 
 export const maxDuration = 60;
 
 /**
  * Daily job (vercel.json, 05:00 UTC = 08:00 Riyadh). Only Vercel Cron (with CRON_SECRET) may call it.
- *  1. Refresh the last 7 days of TikTok data for clients with connected (non-demo) accounts.
+ *  1. Refresh the last 7 days of TikTok data for clients with connected (non-demo) accounts,
+ *     and of store sales for connected stores (Zid; refreshing store tokens when due).
  *  2. Run GLIO's suggestion rules for every client (proposals only; nothing is applied).
  *  3. Email owners/managers about requests waiting for approval (each announced once).
  *  4. Email the scheduled reports that are due.
@@ -47,6 +49,21 @@ export async function GET(request: NextRequest) {
     }
   }
   result.refreshed = refreshed;
+
+  // 1b. Store sales (Zid): the last 7 days, so later cancellations and refunds are picked up.
+  const stores: Array<{ client: string; ok: boolean; code?: string }> = [];
+  if (env.zidConfigured()) {
+    const rows = await db.query("select workspace_id, client_id from public.store_connections where platform = 'zid' and status = 'active'");
+    for (const s of rows) {
+      try {
+        await syncClientStore(db, s.workspace_id, s.client_id, addDays(yesterday, -6), yesterday);
+        stores.push({ client: s.client_id, ok: true });
+      } catch (err) {
+        stores.push({ client: s.client_id, ok: false, code: describeError(err).code });
+      }
+    }
+  }
+  result.stores = stores;
 
   // 2. Suggestions
   try {

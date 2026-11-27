@@ -7,6 +7,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
  * match (stops another site from completing a connection in your session).
  */
 export const TIKTOK_OAUTH_COOKIE = "glio_tiktok_oauth";
+export const ZID_OAUTH_COOKIE = "glio_zid_oauth";
 // Long enough to read TikTok's permission page (and switch accounts) without rushing.
 export const OAUTH_MAX_AGE_SECONDS = 1800;
 

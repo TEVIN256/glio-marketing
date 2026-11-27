@@ -314,3 +314,24 @@ export async function saveMargin(formData: FormData) {
   });
   redirect(`${base}?pm=saved#profit`);
 }
+
+/** Which sales count as this client's purchase value (website / in-app / TikTok Shop; owners/managers). */
+export async function saveValueSources(formData: FormData) {
+  const ws = String(formData.get("ws"));
+  const client = String(formData.get("client"));
+  const base = `/w/${ws}/c/${client}`;
+  const access = await clientAccess(ws, client);
+  if (!access.canManage) redirect(`${base}?e=forbidden#profit`);
+  const chosen = ["website", "app", "shop"].filter((s) => formData.getAll("source").map(String).includes(s));
+  if (chosen.length === 0) redirect(`${base}?e=sources#profit`);
+  const { error } = await access.supabase.from("client_economics").upsert(
+    { client_id: client, workspace_id: ws, value_sources: chosen, updated_by: access.user.id, updated_at: new Date().toISOString() },
+    { onConflict: "client_id" },
+  );
+  if (error) redirect(`${base}?e=sources#profit`);
+  await access.supabase.from("audit_log").insert({
+    workspace_id: ws, actor_kind: "user", actor_user_id: access.user.id, action: "client.value_sources_updated",
+    entity_type: "client", entity_id: client, metadata: { value_sources: chosen },
+  });
+  redirect(`${base}?pm=sources#profit`);
+}

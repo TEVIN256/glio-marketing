@@ -1,4 +1,4 @@
-import { METRIC_LABELS, METRIC_ORDER, type ReportModel, SCOPE_LABELS } from "./figures.ts";
+import { METRIC_ORDER, type ReportModel, SCOPE_LABELS, metricLabel } from "./figures.ts";
 
 /**
  * The report email: built ONLY from a stored report snapshot (the same figures
@@ -118,7 +118,7 @@ export function renderReportEmail(input: ReportEmailInput): RenderedEmail {
       .filter((f) => f.scope === scope)
       .sort((a, b) => METRIC_ORDER.indexOf(a.metric) - METRIC_ORDER.indexOf(b.metric))
       .map((f) => {
-        const label = METRIC_LABELS[f.metric][lang];
+        const label = metricLabel(f.metric, lang, report.valueSources);
         const value = f.status === "value" && f.display ? f.display[lang] : f.status === "not_applicable" ? t.notApplicable : t.notProvided;
         textLines.push(`${scopeLabel(scope)} - ${label}: ${value}`);
         const valueHtml = f.status === "value"

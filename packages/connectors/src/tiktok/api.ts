@@ -50,15 +50,35 @@ export const TIKTOK_PAGE_SIZE = 1000; // maximum
  */
 export const TIKTOK_PURCHASE_VALUE_METRIC = "total_complete_payment_rate";
 export const TIKTOK_VALUE_METRICS = [TIKTOK_PURCHASE_VALUE_METRIC, "complete_payment_roas"];
+/**
+ * In-app purchase value ("Purchase value (app)") and TikTok Shop gross revenue ("Gross revenue (Shop)", what
+ * people pay less sales tax plus Shop discounts). Both support campaign_id + stat_time_day and advertiser_id
+ * (doc 1751443967255553, App "Purchase" and "Shop metrics" notes). Requested only for clients that count them;
+ * their ROAS metrics are archived for checking, not stored.
+ */
+export const TIKTOK_APP_VALUE_METRIC = "total_purchase_value";
+export const TIKTOK_SHOP_REVENUE_METRIC = "total_onsite_shopping_value";
+export const TIKTOK_EXTRA_VALUE_METRICS: Record<"app" | "shop", string[]> = {
+  app: [TIKTOK_APP_VALUE_METRIC, "total_active_pay_roas"],
+  shop: [TIKTOK_SHOP_REVENUE_METRIC, "onsite_shopping_roas"],
+};
+/** Value metrics for a request: website always, plus app/shop when the client counts them. */
+export function valueMetrics(sources: ReadonlyArray<string> = ["website"]): string[] {
+  return [
+    ...TIKTOK_VALUE_METRICS,
+    ...(sources.includes("app") ? TIKTOK_EXTRA_VALUE_METRICS.app : []),
+    ...(sources.includes("shop") ? TIKTOK_EXTRA_VALUE_METRICS.shop : []),
+  ];
+}
 
 /** Campaign x day report parameters. */
-export function campaignDailyReportParams(advertiserId: string, dateFrom: string, dateTo: string, page: number) {
+export function campaignDailyReportParams(advertiserId: string, dateFrom: string, dateTo: string, page: number, sources?: ReadonlyArray<string>) {
   return {
     advertiser_id: advertiserId,
     report_type: "BASIC",
     data_level: "AUCTION_CAMPAIGN",
     dimensions: ["campaign_id", "stat_time_day"],
-    metrics: ["campaign_name", "spend", "impressions", "clicks", "conversion", ...TIKTOK_VALUE_METRICS],
+    metrics: ["campaign_name", "spend", "impressions", "clicks", "conversion", ...valueMetrics(sources)],
     // Include deleted campaigns (default is STATUS_NOT_DELETE), so campaign rows add up to the
     // account totals used for reconciliation. filter_value is itself a JSON string (doc 1751443975608321).
     filtering: [{ field_name: "campaign_status", filter_type: "IN", filter_value: JSON.stringify(["STATUS_ALL"]) }],
@@ -93,13 +113,13 @@ export function campaignHourlyReportParams(advertiserId: string, day: string, pa
  * Account-level totals over the whole range (no day dimension), used for
  * reconciliation: one aggregated row, deleted campaigns included.
  */
-export function accountTotalsParams(advertiserId: string, dateFrom: string, dateTo: string) {
+export function accountTotalsParams(advertiserId: string, dateFrom: string, dateTo: string, sources?: ReadonlyArray<string>) {
   return {
     advertiser_id: advertiserId,
     report_type: "BASIC",
     data_level: "AUCTION_ADVERTISER",
     dimensions: ["advertiser_id"],
-    metrics: ["spend", "impressions", "clicks", "conversion", ...TIKTOK_VALUE_METRICS],
+    metrics: ["spend", "impressions", "clicks", "conversion", ...valueMetrics(sources)],
     start_date: dateFrom,
     end_date: dateTo,
     page: 1,

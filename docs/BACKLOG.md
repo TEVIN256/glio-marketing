@@ -73,10 +73,6 @@ actually sold.
 
 ## Later
 
-- **Other purchase values:**
-  - in-app: `total_purchase_value`
-  - TikTok Shop: `total_onsite_shopping_value`
-  - Only website purchases are fetched now (ADR-031).
 - **TikTok Reporting API v2.0.** v1.3 has no announced end date. When it gets one, move the report calls behind the
   same connector interface (ADR-028).
 - **More channels:** Snapchat, Meta, Google Ads. The connector interface is ready; each needs its own platform app

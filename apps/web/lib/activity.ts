@@ -25,6 +25,7 @@ export const ACTIONS: Record<string, { group: ActivityGroup | null; en: string; 
   "guardrails.updated": A("changes", "Changed the safety limits", "عدّل حدود الأمان"),
   "suggestion_settings.updated": A("changes", "Changed suggestion settings", "عدّل إعدادات الاقتراحات"),
   "client.margin_updated": A("changes", "Changed the gross margin", "عدّل هامش الربح"),
+  "client.value_sources_updated": A("changes", "Changed what counts as purchase value", "عدّل ما يُحتسب قيمةً للمشتريات"),
   "report_schedule.updated": A("changes", "Changed the report email schedule", "عدّل جدول رسائل التقارير"),
   "client.deleted": A("changes", "Deleted a client and its data", "حذف عميلًا وبياناته"),
   "ad_account.connected": A("access", "Connected an ad account", "ربط حسابًا إعلانيًا"),

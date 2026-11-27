@@ -517,3 +517,8 @@ button.danger:not(.secondary) { background: var(--bad); border-color: var(--bad)
 .activity-filters select { min-width: 180px; }
 a.sidebar-user { display: block; text-decoration: none; }
 a.sidebar-user:hover { color: #fff; text-decoration: underline; }
+
+/* Purchase value sources */
+.sources-form fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
+.sources-form legend { font-weight: 600; margin-block-end: 6px; }
+.sources-form .check { display: inline-flex; gap: 6px; align-items: center; font-weight: 400; }

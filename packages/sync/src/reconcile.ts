@@ -1,6 +1,7 @@
 import { MoneyError, decimalToMinor, splitWindows } from "@glio/core";
 import { type AccountTotals, PlatformError, type ReportingConnector } from "@glio/connectors";
 import { randomUUID } from "node:crypto";
+import { clientValueSources } from "./value-sources.ts";
 import { type RetryOptions, defaultRetry, withRetry } from "./retry.ts";
 import { archivePayload, loadAccount } from "./run-sync.ts";
 import type { SecretStore } from "./secrets.ts";
@@ -9,7 +10,7 @@ import type { SqlExecutor } from "./sql.ts";
 /** 0.5% in parts per million. */
 export const DEFAULT_THRESHOLD_PPM = 5_000;
 
-export type MetricName = "spend" | "impressions" | "clicks" | "conversions" | "purchase_value";
+export type MetricName = "spend" | "impressions" | "clicks" | "conversions" | "purchase_value" | "app_purchase_value" | "shop_revenue";
 export type CheckStatus = "ok" | "drift" | "not_comparable";
 
 /** Conversions can be fractional; compare them as integers scaled by 10^4 (numeric(20,4)). */
@@ -103,12 +104,13 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
     if (!cred) throw new PlatformError("Ad account has no stored credentials", connector.platform, "not_connected", false);
     accessToken = await secrets.get(cred.secret_ref);
 
+    const valueSources = await clientValueSources(db, account.client_id);
     // 1. The platform's totals, per window (a range longer than the platform allows is split and summed).
     const answers: AccountTotals[] = [];
     const payloadIds: number[] = [];
     for (const w of splitWindows(window.dateFrom, window.dateTo, connector.maxDaysPerRequest)) {
       const totals = await withRetry(
-        () => connector.fetchAccountTotals({ accessToken, externalAccountId: account.external_id, dateFrom: w.from, dateTo: w.to }),
+        () => connector.fetchAccountTotals({ accessToken, externalAccountId: account.external_id, dateFrom: w.from, dateTo: w.to, valueSources }),
         retry,
       );
       answers.push(totals);
@@ -123,7 +125,9 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
               count(impressions)::int as n_impr, sum(impressions)::text as impressions,
               count(clicks)::int as n_clicks, sum(clicks)::text as clicks,
               count(conversions)::int as n_conv, sum(conversions)::text as conversions,
-              count(purchase_value_minor)::int as n_value, sum(purchase_value_minor)::text as purchase_value
+              count(purchase_value_minor)::int as n_value, sum(purchase_value_minor)::text as purchase_value,
+              count(app_purchase_value_minor)::int as n_app, sum(app_purchase_value_minor)::text as app_value,
+              count(shop_revenue_minor)::int as n_shop, sum(shop_revenue_minor)::text as shop_revenue
        from public.metric_daily
        where ad_account_id = $1 and level = 'campaign' and date between $2 and $3`,
       [account.id, window.dateFrom, window.dateTo],
@@ -159,9 +163,13 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
     ];
     // Purchase value is checked when both sides have it (it is optional: an account may not track
     // website purchases, and older rows predate it), so its absence never downgrades the check.
-    const ourValue = ours(o!.purchase_value, o!.n_value);
-    if (typeof ourValue === "bigint" && theirs.purchaseValue !== null && !theirs.allEmpty) {
-      results.push(compare("purchase_value", ourValue, theirs.purchaseValue));
+    const optional: Array<[MetricName, bigint | null | "mixed", bigint | null]> = [
+      ["purchase_value", ours(o!.purchase_value, o!.n_value), theirs.purchaseValue],
+      ["app_purchase_value", ours(o!.app_value, o!.n_app), theirs.appValue],
+      ["shop_revenue", ours(o!.shop_revenue, o!.n_shop), theirs.shopRevenue],
+    ];
+    for (const [metric, ourValue, theirValue] of optional) {
+      if (typeof ourValue === "bigint" && theirValue !== null && !theirs.allEmpty) results.push(compare(metric, ourValue, theirValue));
     }
     const status: CheckStatus = results.some((r) => r.status === "drift")
       ? "drift"
@@ -179,7 +187,7 @@ export async function reconcile(deps: ReconcileDeps, args: ReconcileArgs): Promi
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
           [
             checkId, account.workspace_id, account.client_id, account.id, account.platform, run.id, window.dateFrom, window.dateTo,
-            r.metric, unitOf(r.metric), r.metric === "spend" || r.metric === "purchase_value" ? account.currency : null,
+            r.metric, unitOf(r.metric), unitOf(r.metric) === "minor_units" ? account.currency : null,
             display(r.metric, r.ours), display(r.metric, r.theirs), r.driftPpm?.toString() ?? null, thresholdPpm,
             r.status, [r.note, evidenceNote].filter(Boolean).join(" | ") || null, payloadIds[0],
           ],
@@ -226,6 +234,8 @@ function sumPlatformTotals(answers: AccountTotals[], currency: string) {
     clicks: sum((a) => (a.clicks === null ? null : BigInt(a.clicks))),
     conversions: sum((a) => (a.conversions === null ? null : scaled(a.conversions))),
     purchaseValue: sum((a) => (a.purchaseValue === null ? null : decimalToMinor(a.purchaseValue, currency))),
+    appValue: sum((a) => (a.appPurchaseValue == null ? null : decimalToMinor(a.appPurchaseValue, currency))),
+    shopRevenue: sum((a) => (a.shopRevenue == null ? null : decimalToMinor(a.shopRevenue, currency))),
   };
 }
 
@@ -241,7 +251,7 @@ function scaled(decimal: string): bigint {
 }
 
 function unitOf(metric: MetricName): string {
-  return metric === "spend" || metric === "purchase_value" ? "minor_units" : metric === "conversions" ? "decimal" : "count";
+  return metric === "conversions" ? "decimal" : metric === "impressions" || metric === "clicks" ? "count" : "minor_units";
 }
 
 /** Value as stored in the numeric column: minor units / counts as-is, conversions unscaled. */

@@ -26,6 +26,9 @@ const EXPECTED_FUNCTIONS = ["decide_approval", "accept_invitation", "invitation_
 const EXPECTED_COLUMNS: Array<[string, string]> = [
   ["report_deliveries", "unsubscribe_token_hash"], // 0012
   ["metric_daily", "purchase_value_minor"], // 0014
+  ["metric_daily", "app_purchase_value_minor"], // 0019
+  ["metric_daily", "shop_revenue_minor"], // 0019
+  ["client_economics", "value_sources"], // 0019
 ];
 /** Foreign keys to auth.users that must be gone after migration 0018 (they would block account deletion). */
 const FORBIDDEN_FKS = ["report_snapshots_created_by_fkey", "report_deliveries_sent_by_fkey", "invitations_invited_by_fkey"];

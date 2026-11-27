@@ -1,4 +1,4 @@
-import { type Figure, METRIC_ORDER, type MetricId, type ReportModel } from "@glio/reports";
+import { type Figure, METRIC_ORDER, type MetricId, type ReportModel, metricLabel } from "@glio/reports";
 import { METRIC_LABELS, SCOPE_LABELS } from "@glio/reports";
 import type { Dict, Lang } from "@/lib/i18n";
 
@@ -59,7 +59,7 @@ export function ReportView({ report, commentary, lang, t, figureHref }: ReportVi
             </div>
             <div className="figures">
               {figures.map((f) => {
-                const label = METRIC_LABELS[f.metric][lang];
+                const label = metricLabel(f.metric, lang, report.valueSources);
                 if (f.status !== "value" || !f.display) {
                   return (
                     <div key={f.id} className="figure" data-figure={f.id}>

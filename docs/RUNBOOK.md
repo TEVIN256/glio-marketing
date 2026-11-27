@@ -388,6 +388,17 @@ select
   (select count(*) from pg_policies where schemaname = 'public')                              as policies;           -- expect 54
 ```
 
+### Diagnostic for 20261127000003_revenue_sources
+
+```sql
+select
+  (select count(*) from information_schema.columns where table_schema = 'public'
+     and column_name in ('app_purchase_value_minor', 'shop_revenue_minor'))                 as new_columns,    -- expect 4
+  exists(select 1 from information_schema.columns where table_schema = 'public'
+     and table_name = 'client_economics' and column_name = 'value_sources')                 as sources_column, -- expect true
+  (select count(*) from pg_policies where schemaname = 'public')                             as policies;       -- expect 54
+```
+
 ## Migration log
 
 Supabase org GLIO MARKETING, free plan.

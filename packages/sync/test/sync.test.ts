@@ -281,3 +281,25 @@ describe("sync windows", () => {
     expect(() => backfillWindow("2024-01-01", "2026-01-01")).toThrow(/longer than/);
   });
 });
+
+describe("in-app and TikTok Shop values follow the client's choice", () => {
+  it("only requests and stores the sources the client selected; the others stay null", async () => {
+    const shopPage = structuredClone(PAGE_1) as { data: { list: Array<{ metrics: Record<string, string> }> } };
+    for (const r of shopPage.data.list) r.metrics.total_onsite_shopping_value = "10.00";
+    pages = { 1: { ...shopPage, data: { ...shopPage.data, page_info: { page: 1, page_size: 1000, total_number: 3, total_page: 1 } } } };
+    await db.as(user(owner), (q) =>
+      q("insert into client_economics (client_id, workspace_id, value_sources) values ($1, $2, '{website,shop}')", [clientId, wsId]));
+    const result = await sync({ dateFrom: "2026-01-01", dateTo: "2026-01-03" });
+    expect(result.status).toBe("succeeded");
+    const metrics = decodeURIComponent(requests[0]!);
+    expect(metrics).toContain("total_onsite_shopping_value");
+    expect(metrics).not.toContain("total_purchase_value");
+    const rows = await exec.query(
+      `select sum(shop_revenue_minor)::text as shop, count(shop_revenue_minor)::int as n_shop,
+              count(app_purchase_value_minor)::int as n_app
+       from metric_daily where ad_account_id = $1 and entity_id = 'test-campaign-001'`,
+      [accountId],
+    );
+    expect(rows[0]).toEqual({ shop: "3000", n_shop: 3, n_app: 0 }); // SAR 10.00 × 3 days
+  });
+});

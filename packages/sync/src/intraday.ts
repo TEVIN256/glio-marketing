@@ -4,6 +4,7 @@ import { type RetryOptions, defaultRetry, withRetry } from "./retry.ts";
 import { type AdAccount, archivePayload } from "./run-sync.ts";
 import type { SecretStore } from "./secrets.ts";
 import type { SqlExecutor } from "./sql.ts";
+import { clientValueSources } from "./value-sources.ts";
 
 /**
  * Today so far (migration 0016, ADR-033): provisional per-campaign figures for one
@@ -67,6 +68,7 @@ export async function refreshIntraday(
     const [cred] = await db.query("select secret_ref from public.ad_account_credentials where ad_account_id = $1", [account.id]);
     if (!cred) throw Object.assign(new Error("Ad account has no stored credentials"), { code: "not_connected" });
     accessToken = await secrets.get(cred.secret_ref);
+    const valueSources = await clientValueSources(db, account.client_id);
 
     const collected: Array<{ grain: "day" | "hour"; row: DailyMetricRow & { hour?: number }; payloadId: number }> = [];
     for (const grain of args.grains) {
@@ -75,7 +77,7 @@ export async function refreshIntraday(
       do {
         const req = { accessToken, externalAccountId: account.external_id, page };
         const result = grain === "day"
-          ? await withRetry(() => connector.fetchDailyReportPage({ ...req, dateFrom: args.day, dateTo: args.day }), retry)
+          ? await withRetry(() => connector.fetchDailyReportPage({ ...req, dateFrom: args.day, dateTo: args.day, valueSources }), retry)
           : await withRetry(() => {
               if (!connector.fetchHourlyReportPage) throw Object.assign(new Error("No hourly reports"), { code: "unsupported" });
               return connector.fetchHourlyReportPage({ ...req, day: args.day });
@@ -100,12 +102,14 @@ export async function refreshIntraday(
         await q(
           `insert into public.metric_intraday
              (workspace_id, client_id, ad_account_id, platform, entity_id, entity_name, day, grain, hour, currency,
-              spend_minor, impressions, clicks, conversions, purchase_value_minor, raw_payload_id, sync_run_id)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+              spend_minor, impressions, clicks, conversions, purchase_value_minor, app_purchase_value_minor, shop_revenue_minor,
+              raw_payload_id, sync_run_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $18, $19, $16, $17)
            on conflict (ad_account_id, entity_id, day, grain, hour) do nothing`,
           [account.workspace_id, account.client_id, account.id, account.platform, row.entityId, row.entityName, args.day,
             grain, grain === "hour" ? (row.hour ?? 0) : 0, currency, minor(row.spend), row.impressions, row.clicks,
-            row.conversions, minor(row.purchaseValue), payloadId, runId],
+            row.conversions, minor(row.purchaseValue), payloadId, runId,
+            minor(row.appPurchaseValue ?? null), minor(row.shopRevenue ?? null)],
         );
       }
       await q("update public.sync_runs set status = 'succeeded', pages_fetched = $2, rows_written = $3, finished_at = now() where id = $1",

@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { DEMO_EXTERNAL_ID, TikTokConnector } from "@glio/connectors";
 import { addDays, minorUnitDigits, todayIn } from "@glio/core";
 import { formatDecimal, formatMoney, roundRatio, trimDecimal } from "@glio/reports";
-import { INTRADAY_MIN_INTERVAL_MINUTES, type SqlExecutor, VaultSecretStore, refreshIntraday } from "@glio/sync";
+import { INTRADAY_MIN_INTERVAL_MINUTES, type SqlExecutor, VaultSecretStore, clientValueSources, refreshIntraday } from "@glio/sync";
 
 /**
  * SERVER ONLY. "Today so far" for a client page (ADR-033): refreshes TikTok's
@@ -107,7 +107,9 @@ export async function loadToday(db: SqlExecutor, clientId: string, opts: { refre
     db.query(
       `select entity_id, max(entity_name) as name, currency,
               sum(spend_minor)::text as spend, count(spend_minor)::int as n_spend,
-              sum(purchase_value_minor)::text as value, count(purchase_value_minor)::int as n_value,
+              sum(purchase_value_minor)::text as web_value, count(purchase_value_minor)::int as n_web,
+              sum(app_purchase_value_minor)::text as app_value, count(app_purchase_value_minor)::int as n_app,
+              sum(shop_revenue_minor)::text as shop_value, count(shop_revenue_minor)::int as n_shop,
               sum(conversions)::text as conv, count(conversions)::int as n_conv,
               sum(clicks)::text as clicks, count(clicks)::int as n_clicks, count(*)::int as n
        from public.metric_intraday where client_id = $1 and day = $2 and grain = 'day'
@@ -132,6 +134,16 @@ export async function loadToday(db: SqlExecutor, clientId: string, opts: { refre
   const money = (v: bigint, cur: string) => both((l) => formatMoney(v, cur, l, "latn"));
   const count = (v: bigint) => both((l) => formatDecimal(String(v), l, "latn"));
 
+  // Purchase value = the client's chosen sources; computed per row so the totals below follow the same rule.
+  const sources = await clientValueSources(db, clientId);
+  for (const r of dayRows) {
+    const parts = sources.map((s) => {
+      const [sum, n] = s === "app" ? [r.app_value, r.n_app] : s === "shop" ? [r.shop_value, r.n_shop] : [r.web_value, r.n_web];
+      return n === r.n ? BigInt((sum as string) ?? "0") : null;
+    });
+    r.n_value = parts.some((p) => p === null) ? 0 : r.n;
+    r.value = parts.some((p) => p === null) ? null : String(parts.reduce<bigint>((a, b) => a + (b as bigint), 0n));
+  }
   const campaigns: TodayCampaign[] = dayRows.map((r) => {
     const spend = r.n_spend === r.n ? BigInt(r.spend ?? "0") : null;
     const value = r.n_value === r.n ? BigInt(r.value ?? "0") : null;

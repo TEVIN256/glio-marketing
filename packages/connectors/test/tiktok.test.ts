@@ -48,7 +48,10 @@ describe("TikTokConnector.fetchDailyReportPage", () => {
       clicks: 250,
       conversions: "12",
       purchaseValue: "1440.00",
+      appPurchaseValue: null,
+      shopRevenue: null,
     });
+    // Without app/Shop sources only the website value is asked for (other accounts stay as they were).
     // Purchase value and TikTok's own ROAS are requested (ROAS only so the raw payload keeps it for checks).
     const metrics = JSON.parse(new URL(call.url).searchParams.get("metrics")!);
     expect(metrics).toEqual(expect.arrayContaining(["total_complete_payment_rate", "complete_payment_roas"]));
@@ -171,5 +174,24 @@ describe("TikTokConnector.revokeToken", () => {
     expect(err.code).toBe("tiktok_40105");
     expect(err.message).not.toContain(TOKEN);
     expect(err.message).not.toContain("secret-xyz");
+  });
+});
+
+describe("in-app and TikTok Shop values (per-client sources)", () => {
+  it("are requested only when the client counts them, and parsed into their own fields", async () => {
+    const body = structuredClone(PAGE_1);
+    (body.data.list[0]!.metrics as Record<string, unknown>)["total_purchase_value"] = "310.25";
+    (body.data.list[0]!.metrics as Record<string, unknown>)["total_onsite_shopping_value"] = "-";
+    const { fetch, calls } = fakeFetch([{ status: 200, body }]);
+    const page = await new TikTokConnector({ fetch }).fetchDailyReportPage({ ...request, valueSources: ["website", "app", "shop"] });
+    const metrics = JSON.parse(new URL(calls[0]!.url).searchParams.get("metrics")!);
+    expect(metrics).toEqual(expect.arrayContaining(["total_complete_payment_rate", "total_purchase_value", "total_onsite_shopping_value"]));
+    expect(page.rows[0]).toMatchObject({ purchaseValue: "1440.00", appPurchaseValue: "310.25", shopRevenue: null });
+
+    const plain = fakeFetch([{ status: 200, body: PAGE_1 }]);
+    await new TikTokConnector({ fetch: plain.fetch }).fetchDailyReportPage(request);
+    const plainMetrics = JSON.parse(new URL(plain.calls[0]!.url).searchParams.get("metrics")!);
+    expect(plainMetrics).not.toContain("total_purchase_value");
+    expect(plainMetrics).not.toContain("total_onsite_shopping_value");
   });
 });

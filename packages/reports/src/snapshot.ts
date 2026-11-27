@@ -1,5 +1,5 @@
 import { assertIsoDate, sha256OfJson } from "@glio/core";
-import type { SqlExecutor } from "@glio/sync";
+import { type SqlExecutor, clientValueSources } from "@glio/sync";
 import { type CommentaryModel, type CommentaryResult, generateCommentary } from "./commentary.ts";
 import { type ChannelTotals, type ReportModel, buildReport } from "./figures.ts";
 import type { Digits } from "./format.ts";
@@ -22,7 +22,8 @@ export async function loadChannelTotals(
   db: SqlExecutor,
   clientId: string,
   period: { from: string; to: string },
-): Promise<{ channels: ChannelTotals[]; total: ChannelTotals | null }> {
+): Promise<{ channels: ChannelTotals[]; total: ChannelTotals | null; valueSources: string[] }> {
+  const sources = await clientValueSources(db, clientId);
   const rows = await db.query(
     `select m.platform, m.currency, count(*)::int as n,
             count(m.spend_minor)::int as n_spend, sum(m.spend_minor)::text as spend,
@@ -30,6 +31,8 @@ export async function loadChannelTotals(
             count(m.clicks)::int as n_clicks, sum(m.clicks)::text as clicks,
             count(m.conversions)::int as n_conv, sum(m.conversions)::text as conversions,
             count(m.purchase_value_minor)::int as n_value, sum(m.purchase_value_minor)::text as purchase_value,
+            count(m.app_purchase_value_minor)::int as n_app, sum(m.app_purchase_value_minor)::text as app_value,
+            count(m.shop_revenue_minor)::int as n_shop, sum(m.shop_revenue_minor)::text as shop_revenue,
             array_agg(distinct m.raw_payload_id order by m.raw_payload_id) as raw_ids
      from public.metric_daily m
      where m.client_id = $1 and m.level = 'campaign' and m.date between $2 and $3
@@ -60,12 +63,13 @@ export async function loadChannelTotals(
     impressions: summed(r.n, r.n_impr, r.impressions),
     clicks: summed(r.n, r.n_clicks, r.clicks),
     conversionsScaled: summed(r.n, r.n_conv, r.conversions, true),
-    purchaseValueMinor: summed(r.n, r.n_value, r.purchase_value),
+    purchaseValueMinor: combine(sources.map((s) =>
+      s === "app" ? summed(r.n, r.n_app, r.app_value) : s === "shop" ? summed(r.n, r.n_shop, r.shop_revenue) : summed(r.n, r.n_value, r.purchase_value))),
     rawPayloadIds: (r.raw_ids as Array<string | number>).map(Number),
     reconciliation: reconFor(r.platform),
   }));
 
-  if (channels.length <= 1) return { channels, total: null };
+  if (channels.length <= 1) return { channels, total: null, valueSources: sources };
   const currencies = new Set(channels.map((c) => c.currency));
   const add = (pick: (c: ChannelTotals) => Sum): Sum => {
     let total = 0n;
@@ -88,7 +92,18 @@ export async function loadChannelTotals(
     rawPayloadIds: [...new Set(channels.flatMap((c) => c.rawPayloadIds))].sort((a, b) => a - b),
     reconciliation: channels.some((c) => c.reconciliation === "drift") ? "drift" : "ok",
   };
-  return { channels, total };
+  return { channels, total, valueSources: sources };
+}
+
+/** Sum of the client's value sources: any "not provided" source makes it not provided; any partial, partial. */
+export function combine(parts: Sum[]): Sum {
+  let total = 0n;
+  for (const p of parts) {
+    if (p === null) return null;
+    if (p === "partial") return "partial";
+    total += p;
+  }
+  return total;
 }
 
 export interface SnapshotDeps {
@@ -128,8 +143,8 @@ export async function createReportSnapshot(deps: SnapshotDeps, args: SnapshotArg
   if (!client) throw new Error(`Client ${args.clientId} not found`);
 
   const period = { from: args.dateFrom, to: args.dateTo };
-  const { channels, total } = await loadChannelTotals(deps.db, args.clientId, period);
-  const report = buildReport({ period, channels, total, digits: args.digits ?? "latn" });
+  const { channels, total, valueSources } = await loadChannelTotals(deps.db, args.clientId, period);
+  const report = buildReport({ period, channels, total, valueSources, digits: args.digits ?? "latn" });
   const reportSha256 = sha256OfJson(report);
   const commentary = await generateCommentary(deps.model, report);
 

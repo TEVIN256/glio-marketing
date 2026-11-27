@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { DEMO_EXTERNAL_ID } from "@glio/connectors";
 import { minorUnitDigits, todayIn } from "@glio/core";
-import { type Figure, METRIC_LABELS, METRIC_ORDER, type MetricId } from "@glio/reports";
+import { type Figure, METRIC_LABELS, METRIC_ORDER, type MetricId, metricLabel } from "@glio/reports";
 import { CampaignTable } from "@/components/app/CampaignTable";
 import { TodayPanel } from "@/components/app/TodayPanel";
 import { breakEvenRoas, marginToBasisPoints, profitAfterAds, standing } from "@/lib/break-even";
@@ -20,7 +20,7 @@ import { env } from "@/lib/env";
 import { ERROR_HINTS, hintFor } from "@/lib/errors";
 import { getDict } from "@/lib/i18n";
 import { serverDb } from "@/lib/server-db";
-import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, saveMargin, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
+import { connectTikTok, deleteClient, disconnectTikTokAccount, generateReport, saveMargin, saveValueSources, loadDemoData, refreshToday, saveReportSchedule, sendReportNow, syncTikTok } from "./actions";
 import { saveGuardrails, saveSuggestionSettings } from "../../approvals/actions";
 import { formatMoney, minorToDecimalForInput } from "@/lib/money-display";
 
@@ -73,7 +73,7 @@ export default async function ClientDashboard({
       .eq("client_id", client).neq("kind", "intraday").order("started_at", { ascending: false }).limit(50),
     // Today so far (provisional): refreshed here when older than 10 minutes. Server read after the RLS check above.
     loadToday(serverDb(), client, { refresh: true }),
-    supabase.from("client_economics").select("gross_margin_pct").eq("client_id", client).maybeSingle(),
+    supabase.from("client_economics").select("gross_margin_pct, value_sources").eq("client_id", client).maybeSingle(),
   ]);
   const sg = sgSettings ?? {
     enabled: true, pause_min_spend_major: 300, high_cpa_pct: 150, low_cpa_pct: 70,
@@ -173,6 +173,8 @@ export default async function ClientDashboard({
       {q.tt === "synced" && <p className="notice" role="status">{t.tiktokSynced}</p>}
       {q.tt === "cancelled" && <p className="notice" role="status">{t.tiktokConnectCancelled}</p>}
       {q.pm === "saved" && <p className="notice" role="status">{t.marginSaved}</p>}
+      {q.pm === "sources" && <p className="notice" role="status">{t.valueSourcesSaved}</p>}
+      {q.e === "sources" && <p className="notice error" role="alert">{t.valueSourcesError}</p>}
       {q.e === "margin" && <p className="notice error" role="alert">{t.marginError}</p>}
       {q.tt === "disconnected" && (
         <p className={q.r === "failed" ? "notice warn" : "notice"} role="status">
@@ -301,7 +303,7 @@ export default async function ClientDashboard({
         {KPI_ORDER.map((m) => (
           <Kpi
             key={m}
-            label={METRIC_LABELS[m][lang]}
+            label={metricLabel(m, lang, report.valueSources)}
             figure={fig(report, m)}
             delta={figureDelta(fig(report, m), fig(previousReport, m))}
             lang={lang}
@@ -472,13 +474,31 @@ export default async function ClientDashboard({
         )}
         {marginBp && <p className="fine-print">{t.profitNote}</p>}
         {access.canManage && (
+          <form action={saveValueSources} className="sources-form">
+            <input type="hidden" name="ws" value={ws} />
+            <input type="hidden" name="client" value={client} />
+            <fieldset>
+              <legend>{t.valueSourcesTitle}</legend>
+              {(["website", "app", "shop"] as const).map((s) => (
+                <label key={s} className="check">
+                  <input type="checkbox" name="source" value={s}
+                    defaultChecked={((economics?.value_sources as string[] | undefined) ?? ["website"]).includes(s)} />
+                  {{ website: t.sourceWebsite, app: t.sourceApp, shop: t.sourceShop }[s]}
+                </label>
+              ))}
+            </fieldset>
+            <p className="fine-print">{t.valueSourcesHint}</p>
+            <button type="submit" className="secondary">{t.save}</button>
+          </form>
+        )}
+        {access.canManage && (
           <form action={saveMargin} className="profit-form">
             <input type="hidden" name="ws" value={ws} />
             <input type="hidden" name="client" value={client} />
             <div>
               <label htmlFor="margin">{t.grossMarginInput}</label>
               <input id="margin" name="margin" inputMode="decimal" dir="ltr" required placeholder="40"
-                defaultValue={economics ? String(economics.gross_margin_pct).replace(/\.00$/, "") : ""} />
+                defaultValue={economics?.gross_margin_pct != null ? String(economics.gross_margin_pct).replace(/\.00$/, "") : ""} />
             </div>
             <button type="submit" className="secondary">{t.save}</button>
           </form>

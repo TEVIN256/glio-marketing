@@ -186,3 +186,20 @@ describe("generateCommentary", () => {
     expect(Object.keys(r.input).sort()).toEqual(["channels", "figures", "period"]);
   });
 });
+
+import { combine, metricLabel } from "../src/index.ts";
+describe("purchase value from several sources", () => {
+  it("adds the selected sources; one missing makes it not provided, one partial makes it partial", () => {
+    expect(combine([100n, 250n])).toBe(350n);
+    expect(combine([100n, null])).toBeNull();
+    expect(combine([100n, "partial"])).toBe("partial");
+    expect(combine([null, "partial"])).toBeNull();
+  });
+
+  it("names the sources in the label only when it is more than website purchases", () => {
+    expect(metricLabel("purchase_value", "en")).toBe(metricLabel("purchase_value", "en", ["website"]));
+    expect(metricLabel("purchase_value", "en", ["website", "shop"])).toBe("Purchase value (website + TikTok Shop)");
+    expect(metricLabel("purchase_value", "ar", ["app"])).toContain("التطبيق");
+    expect(metricLabel("spend", "en", ["website", "app"])).toBe("Spend");
+  });
+});

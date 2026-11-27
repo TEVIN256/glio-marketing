@@ -4,7 +4,7 @@ import {
 } from "../types.ts";
 import {
   TIKTOK_ADVERTISER_GET_PATH, TIKTOK_ADVERTISER_INFO_FIELDS, TIKTOK_ADVERTISER_INFO_MAX_IDS, TIKTOK_ADVERTISER_INFO_PATH,
-  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_PURCHASE_VALUE_METRIC, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_REVOKE_PATH, TIKTOK_TOKEN_PATH,
+  TIKTOK_API_BASE, TIKTOK_AUTH_URL, TIKTOK_APP_VALUE_METRIC, TIKTOK_MAX_DAYS_PER_REPORT, TIKTOK_PURCHASE_VALUE_METRIC, TIKTOK_SHOP_REVENUE_METRIC, TIKTOK_REPORT_PATH, TIKTOK_RETRYABLE_CODES, TIKTOK_REVOKE_PATH, TIKTOK_TOKEN_PATH,
   accountTotalsParams, isNoValue, campaignDailyReportParams, campaignHourlyReportParams, type TikTokAdvertiserInfoData, type TikTokAdvertiserListData,
   type TikTokEnvelope, type TikTokReportData, type TikTokTokenData,
 } from "./api.ts";
@@ -116,7 +116,7 @@ export class TikTokConnector implements ReportingConnector {
   }
 
   async fetchDailyReportPage(req: DailyReportRequest): Promise<ReportPage> {
-    const params = campaignDailyReportParams(req.externalAccountId, req.dateFrom, req.dateTo, req.page);
+    const params = campaignDailyReportParams(req.externalAccountId, req.dateFrom, req.dateTo, req.page, req.valueSources);
     const { body, data } = await this.getReport(params, req.accessToken);
 
     return {
@@ -145,7 +145,7 @@ export class TikTokConnector implements ReportingConnector {
   }
 
   async fetchAccountTotals(req: AccountTotalsRequest): Promise<AccountTotals> {
-    const params = accountTotalsParams(req.externalAccountId, req.dateFrom, req.dateTo);
+    const params = accountTotalsParams(req.externalAccountId, req.dateFrom, req.dateTo, req.valueSources);
     const { body, data } = await this.getReport(params, req.accessToken);
     if (data.list.length > 1) {
       throw new PlatformError(`TikTok account totals returned ${data.list.length} rows, expected 1`, "tiktok", "bad_shape", false);
@@ -164,6 +164,8 @@ export class TikTokConnector implements ReportingConnector {
       clicks: integerOrNull(m["clicks"]),
       conversions: decimalOrNull(m["conversion"]),
       purchaseValue: decimalOrNull(m[TIKTOK_PURCHASE_VALUE_METRIC]),
+      appPurchaseValue: decimalOrNull(m[TIKTOK_APP_VALUE_METRIC]),
+      shopRevenue: decimalOrNull(m[TIKTOK_SHOP_REVENUE_METRIC]),
     };
   }
 
@@ -236,6 +238,8 @@ function toRow(item: TikTokReportData["list"][number]): DailyMetricRow {
     clicks: integerOrNull(m["clicks"]),
     conversions: decimalOrNull(m["conversion"]),
     purchaseValue: decimalOrNull(m[TIKTOK_PURCHASE_VALUE_METRIC]),
+    appPurchaseValue: decimalOrNull(m[TIKTOK_APP_VALUE_METRIC]),
+    shopRevenue: decimalOrNull(m[TIKTOK_SHOP_REVENUE_METRIC]),
   };
 }
 

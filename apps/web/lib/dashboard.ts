@@ -105,7 +105,9 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
             count(impressions)::int as n_impr, sum(impressions)::text as impressions,
             count(clicks)::int as n_clicks, sum(clicks)::text as clicks,
             count(conversions)::int as n_conv, sum(conversions)::text as conversions,
-            count(purchase_value_minor)::int as n_value, sum(purchase_value_minor)::text as purchase_value
+            count(purchase_value_minor)::int as n_value, sum(purchase_value_minor)::text as purchase_value,
+            count(app_purchase_value_minor)::int as n_app, sum(app_purchase_value_minor)::text as app_value,
+            count(shop_revenue_minor)::int as n_shop, sum(shop_revenue_minor)::text as shop_revenue
      from public.metric_daily
      where client_id = $1 and level = 'campaign' and date between $2 and $3
      group by ad_account_id, platform, entity_id, currency
@@ -120,7 +122,12 @@ export async function loadOverview(db: SqlExecutor, clientId: string, period: Pe
     const impressions = full("n_impr") ? BigInt(r.impressions ?? "0") : null;
     const clicks = full("n_clicks") ? BigInt(r.clicks ?? "0") : null;
     const conv = full("n_conv") ? scaled(r.conversions, "conversions") : null;
-    const value = full("n_value") ? BigInt(r.purchase_value ?? "0") : null;
+    // Purchase value = the client's chosen sources (website / app / Shop); any source missing → not provided.
+    const parts = (cur.valueSources ?? ["website"]).map((s) =>
+      s === "app" ? (full("n_app") ? BigInt(r.app_value ?? "0") : null)
+      : s === "shop" ? (full("n_shop") ? BigInt(r.shop_revenue ?? "0") : null)
+      : (full("n_value") ? BigInt(r.purchase_value ?? "0") : null));
+    const value = parts.some((p) => p === null) ? null : parts.reduce<bigint>((a, b) => a + (b as bigint), 0n);
     return {
       adAccountId: r.ad_account_id,
       platform: r.platform,

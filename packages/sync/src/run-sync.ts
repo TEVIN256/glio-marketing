@@ -1,6 +1,7 @@
 import { MoneyError, decimalToMinor, sha256OfJson, splitWindows } from "@glio/core";
 import { type DailyMetricRow, PlatformError, type ReportingConnector, type ReportPage } from "@glio/connectors";
 import { type RetryOptions, defaultRetry, withRetry } from "./retry.ts";
+import { clientValueSources } from "./value-sources.ts";
 import type { SecretStore } from "./secrets.ts";
 import type { Query, SqlExecutor } from "./sql.ts";
 
@@ -74,6 +75,7 @@ export async function runSync(deps: SyncDeps, args: SyncArgs): Promise<SyncResul
     const [cred] = await db.query("select secret_ref from public.ad_account_credentials where ad_account_id = $1", [account.id]);
     if (!cred) throw new SyncError("not_connected", "Ad account has no stored credentials");
     accessToken = await secrets.get(cred.secret_ref);
+    const valueSources = await clientValueSources(db, account.client_id);
 
     // Fetch and archive every page of every window.
     const collected: Array<{ row: DailyMetricRow; rawPayloadId: number }> = [];
@@ -83,7 +85,7 @@ export async function runSync(deps: SyncDeps, args: SyncArgs): Promise<SyncResul
       do {
         const result: ReportPage = await withRetry(
           () => connector.fetchDailyReportPage({
-            accessToken, externalAccountId: account.external_id, dateFrom: window.from, dateTo: window.to, page,
+            accessToken, externalAccountId: account.external_id, dateFrom: window.from, dateTo: window.to, page, valueSources,
           }),
           retry,
         );
@@ -103,23 +105,27 @@ export async function runSync(deps: SyncDeps, args: SyncArgs): Promise<SyncResul
         const rows = await q(
           `insert into public.metric_daily
              (workspace_id, client_id, ad_account_id, platform, level, entity_id, entity_name, date, currency,
-              spend_minor, impressions, clicks, conversions, purchase_value_minor, raw_payload_id, sync_run_id)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $16, $14, $15)
+              spend_minor, impressions, clicks, conversions, purchase_value_minor, app_purchase_value_minor, shop_revenue_minor,
+              raw_payload_id, sync_run_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $16, $17, $18, $14, $15)
            on conflict (ad_account_id, level, entity_id, date) do update set
              entity_name = excluded.entity_name, currency = excluded.currency,
              spend_minor = excluded.spend_minor, impressions = excluded.impressions,
              clicks = excluded.clicks, conversions = excluded.conversions, purchase_value_minor = excluded.purchase_value_minor,
+             app_purchase_value_minor = excluded.app_purchase_value_minor, shop_revenue_minor = excluded.shop_revenue_minor,
              raw_payload_id = excluded.raw_payload_id, sync_run_id = excluded.sync_run_id, updated_at = now()
            where (metric_daily.entity_name, metric_daily.currency, metric_daily.spend_minor, metric_daily.impressions,
-                  metric_daily.clicks, metric_daily.conversions, metric_daily.purchase_value_minor, metric_daily.raw_payload_id)
+                  metric_daily.clicks, metric_daily.conversions, metric_daily.purchase_value_minor,
+                  metric_daily.app_purchase_value_minor, metric_daily.shop_revenue_minor, metric_daily.raw_payload_id)
                  is distinct from
                  (excluded.entity_name, excluded.currency, excluded.spend_minor, excluded.impressions,
-                  excluded.clicks, excluded.conversions, excluded.purchase_value_minor, excluded.raw_payload_id)
+                  excluded.clicks, excluded.conversions, excluded.purchase_value_minor,
+                  excluded.app_purchase_value_minor, excluded.shop_revenue_minor, excluded.raw_payload_id)
            returning 1`,
           [
             account.workspace_id, account.client_id, account.id, account.platform, r.level, r.entityId, r.entityName,
             r.date, account.currency, r.spendMinor, r.impressions, r.clicks, r.conversions, r.rawPayloadId, syncRunId,
-            r.purchaseValueMinor,
+            r.purchaseValueMinor, r.appValueMinor, r.shopRevenueMinor,
           ],
         );
         written += rows.length;
@@ -199,6 +205,8 @@ interface PreparedRow {
   clicks: number | null;
   conversions: string | null;
   purchaseValueMinor: string | null;
+  appValueMinor: string | null;
+  shopRevenueMinor: string | null;
   rawPayloadId: number;
 }
 
@@ -228,6 +236,8 @@ function prepareRows(
       clicks: row.clicks,
       conversions: row.conversions,
       purchaseValueMinor: row.purchaseValue === null ? null : decimalToMinor(row.purchaseValue, currency).toString(),
+      appValueMinor: row.appPurchaseValue == null ? null : decimalToMinor(row.appPurchaseValue, currency).toString(),
+      shopRevenueMinor: row.shopRevenue == null ? null : decimalToMinor(row.shopRevenue, currency).toString(),
       rawPayloadId,
     };
     const key = `${row.level}|${row.entityId}|${row.date}`;

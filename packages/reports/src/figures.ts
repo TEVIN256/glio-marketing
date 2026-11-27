@@ -53,6 +53,8 @@ export interface ReportModel {
   digits: Digits;
   channels: Array<{ scope: string; currency: string | null; reconciliation: ChannelTotals["reconciliation"] }>;
   figures: Figure[];
+  /** Which sales count as purchase value (website / app / shop). Absent in reports made before 2026-11-27 = website. */
+  valueSources?: string[];
 }
 
 /** The order figures are shown in everywhere (dashboard tiles, report page, shared page, email). */
@@ -70,6 +72,20 @@ export const METRIC_LABELS: Record<MetricId, { en: string; ar: string }> = {
   roas: { en: "Return on ad spend", ar: "العائد على الإنفاق الإعلاني" },
 };
 
+const SOURCE_LABELS: Record<string, { en: string; ar: string }> = {
+  website: { en: "website", ar: "الموقع" },
+  app: { en: "app", ar: "التطبيق" },
+  shop: { en: "TikTok Shop", ar: "متجر تيك توك" },
+};
+
+/** "Purchase value (website + TikTok Shop)" when a report counts more than the website; otherwise the plain label. */
+export function metricLabel(metric: MetricId, lang: "en" | "ar", valueSources?: string[]): string {
+  const base = METRIC_LABELS[metric][lang];
+  if (metric !== "purchase_value" || !valueSources || valueSources.join() === "website") return base;
+  const joined = valueSources.map((s) => SOURCE_LABELS[s]?.[lang] ?? s).join(lang === "ar" ? " + " : " + ");
+  return `${base} (${joined})`;
+}
+
 export const SCOPE_LABELS: Record<string, { en: string; ar: string }> = {
   total: { en: "All channels", ar: "جميع القنوات" },
   tiktok: { en: "TikTok", ar: "تيك توك" },
@@ -86,6 +102,7 @@ export function buildReport(args: {
   channels: ChannelTotals[];
   total: ChannelTotals | null;
   digits: Digits;
+  valueSources?: string[];
 }): ReportModel {
   const { digits } = args;
   const figures: Figure[] = [];
@@ -203,6 +220,7 @@ export function buildReport(args: {
     digits,
     channels: args.channels.map((c) => ({ scope: c.scope, currency: c.currency, reconciliation: c.reconciliation })),
     figures,
+    ...(args.valueSources && args.valueSources.join() !== "website" ? { valueSources: args.valueSources } : {}),
   };
 }
 

@@ -23,7 +23,15 @@ export interface DailyMetricRow {
   conversions: string | null; // decimal string; some platforms report fractional conversions
   /** Purchase value as a decimal string in account currency (TikTok: website purchases); null = not provided. */
   purchaseValue: string | null;
+  /** In-app purchase value (TikTok "Purchase value (app)"); null = not requested or not provided. */
+  appPurchaseValue?: string | null;
+  /** TikTok Shop gross revenue (TikTok "Gross revenue (Shop)"); null = not requested or not provided. */
+  shopRevenue?: string | null;
 }
+
+/** Which sales a client counts as purchase value: the website (always fetched), in-app, TikTok Shop. */
+export type ValueSource = "website" | "app" | "shop";
+export const VALUE_SOURCES: ValueSource[] = ["website", "app", "shop"];
 
 export interface ReportPage {
   /** API path that produced this page, e.g. "/report/integrated/get/". */
@@ -49,6 +57,8 @@ export interface DailyReportRequest {
   dateFrom: string;
   dateTo: string;
   page: number;
+  /** Extra value sources to request (website is always included). */
+  valueSources?: ValueSource[];
 }
 
 /**
@@ -68,6 +78,8 @@ export interface AccountTotals {
   clicks: number | null;
   conversions: string | null;
   purchaseValue: string | null;
+  appPurchaseValue?: string | null;
+  shopRevenue?: string | null;
 }
 
 export interface AccountTotalsRequest {
@@ -75,6 +87,7 @@ export interface AccountTotalsRequest {
   externalAccountId: string;
   dateFrom: string;
   dateTo: string;
+  valueSources?: ValueSource[];
 }
 
 /** One campaign's numbers for one hour (platform time zone). Purchase value is not available per hour. */

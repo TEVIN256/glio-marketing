@@ -61,6 +61,14 @@ export const demoTikTokFetch: FetchLike = async (url) => {
   const from = p.get("start_date")!;
   const to = p.get("end_date")!;
   const rows = rowsFor(from, to);
+  const metrics = p.get("metrics") ?? "";
+  const withApp = metrics.includes("total_purchase_value\"");
+  const withShop = metrics.includes("total_onsite_shopping_value");
+  const part = (h: number, pct: number) => { const v = Math.floor(h * pct / 100); return `${Math.floor(v / 100)}.${String(v % 100).padStart(2, "0")}`; };
+  const extras = (valueHalalas: number) => ({
+    ...(withApp ? { total_purchase_value: part(valueHalalas, 20) } : {}),
+    ...(withShop ? { total_onsite_shopping_value: part(valueHalalas, 10) } : {}),
+  });
   const requestId = `demo-${sha256OfJson(url).slice(0, 12)}`;
 
   if (p.get("data_level") === "AUCTION_ADVERTISER") {
@@ -78,6 +86,8 @@ export const demoTikTokFetch: FetchLike = async (url) => {
               spend: `${Math.floor(spend / 100)}.${String(spend % 100).padStart(2, "0")}`,
               impressions: String(sum("impressions")), clicks: String(sum("clicks")), conversion: String(sum("conversions")),
               total_complete_payment_rate: `${Math.floor(value / 100)}.${String(value % 100).padStart(2, "0")}`,
+              ...(withApp ? { total_purchase_value: (() => { let t = 0; for (const r of rows) t += Math.floor(r.valueHalalas * 20 / 100); return `${Math.floor(t / 100)}.${String(t % 100).padStart(2, "0")}`; })() } : {}),
+              ...(withShop ? { total_onsite_shopping_value: (() => { let t = 0; for (const r of rows) t += Math.floor(r.valueHalalas * 10 / 100); return `${Math.floor(t / 100)}.${String(t % 100).padStart(2, "0")}`; })() } : {}),
             },
           }],
           page_info: { page: 1, page_size: 10, total_number: 1, total_page: 1 },
@@ -96,6 +106,7 @@ export const demoTikTokFetch: FetchLike = async (url) => {
           metrics: {
             campaign_name: r.campaign.name, spend: r.spend, impressions: String(r.impressions),
             clicks: String(r.clicks), conversion: String(r.conversions), total_complete_payment_rate: r.value,
+            ...extras(r.valueHalalas),
           },
         })),
         page_info: { page: 1, page_size: 1000, total_number: rows.length, total_page: 1 },

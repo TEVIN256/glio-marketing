@@ -475,6 +475,7 @@ Supabase org GLIO MARKETING, free plan.
 | "glio marketing", Frankfurt, current | 20261127000002_account_deletion | 2026-11-26 | SQL editor (statements as in the file, comments omitted) | 3 / true / 54 ✔ |
 | "glio marketing", Frankfurt, current | 20261127000003_revenue_sources | 2026-11-27 | SQL editor (statements as in the file, comments omitted) | 4 / true / 54 ✔ |
 | "glio marketing", Frankfurt, current | 20261127000004_store_sales | 2026-11-27 | SQL editor (statements as in the file, comments omitted) | 4 / 0 / 57 ✔ |
+| "glio marketing", Frankfurt, current | 20261127000005_snapchat | 2026-11-27 | SQL editor (statements as in the file, comments omitted) | true / 57 ✔ |
 | "glio marketing", Tokyo (`ap-northeast-1`), **retired**, to be deleted | 20261116000001_tenancy | 2026-11-16 | SQL editor | 7 / true / 20 / 3 ✔ |
 
 Frankfurt project created with "Automatically expose new tables" off and "Enable automatic RLS" on (ADR-007).
